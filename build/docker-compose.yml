@@ -1,1 +1,41 @@
+version: '3.8'
 
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+  server1:
+    build: .
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+    ports:
+      - "8080"
+
+  server2:
+    build: .
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=postgres
+    ports:
+      - "8080"
+
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_PASSWORD: chatpass
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:6
+    volumes:
+      - redisdata:/data
+
+volumes:
+  pgdata:
+  redisdata:
