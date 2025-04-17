@@ -2,24 +2,24 @@ package main
 
 import (
 	"log"
-	"server/db"
-	"server/internal/user"
-	"server/internal/ws"
+	"server/internal/db"
+	"server/internal/services"
+	"server/internal/transport"
 	"server/router"
 )
 
 func main() {
 	dbConn, err := db.NewDatabase()
-	if (err != nil) {
+	if err != nil {
 		log.Fatalf("Could not initialize database connection: %s", err)
 	}
 
-	userRep := user.NewRepository(dbConn.GetDB())
-	userSvc := user.NewService(userRep)
-	userHandler := user.NewHandler(userSvc)
+	userRep := db.NewRepository(dbConn.GetDB())
+	userSvc := services.NewService(userRep)
+	userHandler := services.NewHandler(userSvc)
 
-	hub:= ws.NewHub()
-	wsHandler := ws.NewHandler(hub)
+	hub := transport.NewHub()
+	wsHandler := transport.NewHandler(hub)
 	go hub.Run()
 
 	router.InitRouter(userHandler, wsHandler)

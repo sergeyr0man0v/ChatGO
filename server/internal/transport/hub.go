@@ -1,4 +1,4 @@
-package ws
+package transport
 
 type Room struct {
 	ID      string             `json:"id"`

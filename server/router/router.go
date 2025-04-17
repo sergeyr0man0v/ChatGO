@@ -1,15 +1,15 @@
 package router
 
 import (
-	"server/internal/user"
-	"server/internal/ws"
+	"server/internal/services"
+	"server/internal/transport"
 
 	"github.com/gin-gonic/gin"
 )
 
 var r *gin.Engine
 
-func InitRouter(userHandler *user.Handler, wsHandler *ws.Handler) {
+func InitRouter(userHandler *services.Handler, wsHandler *transport.Handler) {
 	r = gin.Default()
 
 	/*r.Use(cors.New(cors.Config{

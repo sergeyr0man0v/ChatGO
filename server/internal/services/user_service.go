@@ -1,10 +1,12 @@
-package user
+package services
 
 import (
 	"context"
 	"server/util"
 	"strconv"
 	"time"
+
+	"server/internal/models"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -14,11 +16,11 @@ const (
 )
 
 type service struct {
-	Repository
+	models.Repository
 	timeout time.Duration
 }
 
-func NewService(repository Repository) Service {
+func NewService(repository models.Repository) Service {
 	return &service{
 		repository,
 		time.Duration(2) * time.Second,
@@ -34,10 +36,9 @@ func (s *service) CreateUser(c context.Context, req *CreateUserReq) (*CreateUser
 		return nil, err
 	}
 
-	u := &User{
-		Username: req.Username,
-		Email:    req.Email,
-		Password: hashedPassword,
+	u := &models.User{
+		Username:          req.Username,
+		EncryptedPassword: hashedPassword, // Вопросики
 	}
 
 	r, err := s.Repository.CreateUser(ctx, u)
@@ -48,7 +49,6 @@ func (s *service) CreateUser(c context.Context, req *CreateUserReq) (*CreateUser
 	res := &CreateUserRes{
 		ID:       strconv.Itoa(int(r.ID)),
 		Username: r.Username,
-		Email:    r.Email,
 	}
 
 	return res, nil
@@ -64,12 +64,12 @@ func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, er
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
-	u, err := s.Repository.GetUserByEmail(ctx, req.Email)
+	u, err := s.Repository.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		return &LoginUserRes{}, err
 	}
 
-	err = util.CheckPassword(req.Password, u.Password)
+	err = util.CheckPassword(req.Password, u.EncryptedPassword) // Вопросики
 	if err != nil {
 		return &LoginUserRes{}, err
 	}
@@ -88,5 +88,5 @@ func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, er
 		return &LoginUserRes{}, err
 	}
 
-	return &LoginUserRes{accessToken: ss, Username: u.Username, ID: strconv.Itoa(int(u.ID))}, nil
+	return &LoginUserRes{AccessToken: ss, Username: u.Username, ID: strconv.Itoa(int(u.ID))}, nil
 }
