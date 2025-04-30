@@ -1,49 +1,125 @@
 package db
 
-import "server/internal/models"
+import (
+	"context"
+	"server/internal/models"
+)
 
-// InsertMessage вставляет новое сообщение в базу данных
-func (db *Database) InsertMessage(message models.Message) error {
-	query := `INSERT INTO messages (id, sender_id, chat_room_id, encrypted_content,
-			reply_to_message_id, created_at, updated_at, is_edited) 
-        	VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
-	_, err := db.GetDB().Exec(query, message.ID, message.SenderID, message.ChatRoomID,
-		message.EncryptedContent, message.ReplyToMessageID, message.CreatedAt,
-		message.UpdatedAt, message.IsEdited)
-	return err
+// CreateMessage добавляет новое сообщение в базу данных, устанавливает created_at и updated_at CURRENT_TIMESTAMP
+func (r *repository) CreateMessage(ctx context.Context, message *models.Message) (*models.Message, error) {
+	query := `
+		INSERT INTO messages (
+			sender_id, 
+			chat_room_id, 
+			encrypted_content,
+			reply_to_message_id,
+			created_at,
+			updated_at,
+			is_edited
+		) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`
+
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		message.SenderID,
+		message.ChatRoomID,
+		message.EncryptedContent,
+		message.ReplyToMessageID,
+	).Scan(
+		&message.ID,
+		&message.SenderID,
+		&message.ChatRoomID,
+		&message.EncryptedContent,
+		&message.ReplyToMessageID,
+		&message.CreatedAt,
+		&message.UpdatedAt,
+		&message.IsEdited,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+	return message, nil
 }
 
-// GetMessagesByChatRoom получает сообщения по ID чата
-func (db *Database) GetMessagesByChatRoom(chatRoomID string) ([]models.Message, error) {
-	rows, err := db.GetDB().Query(
-		`SELECT id, sender_id, chat_room_id, encrypted_content, reply_to_message_id,
-		created_at, updated_at, is_edited FROM messages WHERE chat_room_id = $1`, chatRoomID)
+// GetMessagesByChatRoomID получает сообщения по ID чата, используя лимит для ограничения числа возвращаемых сообщений
+func (r *repository) GetMessagesByChatRoomID(ctx context.Context, chatRoomID string, limit int) ([]*models.Message, error) {
+	query := `
+		SELECT 
+			id,
+			sender_id,
+			chat_room_id,
+			encrypted_content,
+			reply_to_message_id,
+			created_at,
+			updated_at,
+			is_edited 
+		FROM messages 
+		WHERE chat_room_id = $1
+		ORDER BY created_at ASC
+		LIMIT $2`
+
+	rows, err := r.db.QueryContext(ctx, query, chatRoomID, limit)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var messages []models.Message
+	var messages []*models.Message
 	for rows.Next() {
-		var message models.Message
-		if err := rows.Scan(&message.ID, &message.SenderID,
-			&message.ChatRoomID, &message.EncryptedContent,
-			&message.ReplyToMessageID, &message.CreatedAt,
-			&message.UpdatedAt, &message.IsEdited); err != nil {
+		message := &models.Message{}
+		if err = rows.Scan(
+			&message.ID,
+			&message.SenderID,
+			&message.ChatRoomID,
+			&message.EncryptedContent,
+			&message.ReplyToMessageID,
+			&message.CreatedAt,
+			&message.UpdatedAt,
+			&message.IsEdited,
+		); err != nil {
 			return nil, err
 		}
 		messages = append(messages, message)
 	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
 	return messages, nil
 }
 
-// GetMessageByID получает сообщение по его ID
-func (db *Database) GetMessageByID(id string) (models.Message, error) {
-	var message models.Message
-	query := `SELECT id, sender_id, chat_room_id, encrypted_content, reply_to_message_id,
-				created_at, updated_at, is_edited FROM messages WHERE id = $1`
-	err := db.GetDB().QueryRow(query, id).Scan(&message.ID, &message.SenderID,
-		&message.ChatRoomID, &message.EncryptedContent, &message.ReplyToMessageID,
-		&message.CreatedAt, &message.UpdatedAt, &message.IsEdited)
-	return message, err
+// GetMessageByID получает сообщение по ID сообщения
+func (r *repository) GetMessageByID(ctx context.Context, messageID string) (*models.Message, error) {
+	query := `
+		SELECT 
+			id,
+			sender_id,
+			chat_room_id,
+			encrypted_content,
+			reply_to_message_id,
+			created_at,
+			updated_at,
+			is_edited 
+		FROM messages 
+		WHERE id = $1`
+
+	message := &models.Message{}
+	err := r.db.QueryRowContext(ctx, query, messageID).Scan(
+		&message.ID,
+		&message.SenderID,
+		&message.ChatRoomID,
+		&message.EncryptedContent,
+		&message.ReplyToMessageID,
+		&message.CreatedAt,
+		&message.UpdatedAt,
+		&message.IsEdited,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return message, nil
 }

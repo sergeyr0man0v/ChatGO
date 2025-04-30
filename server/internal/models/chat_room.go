@@ -3,19 +3,18 @@ package models
 import "time"
 
 // ChatRoomType представляет собой тип чата
-// type ChatRoomType int
 type ChatRoomType string
 
-// const (
-// 	Direct ChatRoomType = iota
-// 	Group
-// )
+const (
+	Direct ChatRoomType = "direct"
+	Group  ChatRoomType = "group"
+)
 
 // ChatRoom представляет собой модель чата
 type ChatRoom struct {
-	ID        int          `json:"id"`
+	ID        string       `json:"id"`
 	Name      string       `json:"name"`
 	Type      ChatRoomType `json:"type"`
 	CreatedAt time.Time    `json:"created_at"`
-	CreatorID int          `json:"creator_id"`
+	CreatorID string       `json:"creator_id"`
 }

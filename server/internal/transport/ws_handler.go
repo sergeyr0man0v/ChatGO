@@ -2,41 +2,12 @@ package transport
 
 import (
 	"net/http"
+	"server/internal/services"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
-
-type Handler struct {
-	hub *Hub
-}
-
-func NewHandler(h *Hub) *Handler {
-	return &Handler{
-		hub: h,
-	}
-}
-
-type CreateRoomReq struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func (h *Handler) CreateRoom(c *gin.Context) {
-	var req CreateRoomReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	h.hub.Rooms[req.ID] = &Room{
-		ID:      req.ID,
-		Name:    req.Name,
-		Clients: make(map[string]*Client),
-	}
-
-	c.JSON(http.StatusOK, req)
-}
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -46,16 +17,81 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func (h *Handler) JoinRoom(c *gin.Context) {
+type WSHandler struct {
+	hub     *Hub
+	service services.Service
+}
+
+func NewWSHandler(h *Hub, service *services.Service) *WSHandler {
+	return &WSHandler{
+		hub:     h,
+		service: *service,
+	}
+}
+
+type CreateRoomReq struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+func (h *WSHandler) CreateRoom(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	defer conn.Close()
+
+	var req services.CreateChatRoomReq
+	err = conn.ReadJSON(&req)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	room, err := h.service.CreateChatRoom(c.Request.Context(), &req)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	h.hub.Rooms[room.ID] = &Room{
+		ID:      room.ID,
+		Name:    room.Name,
+		Clients: make(map[string]*Client),
+	}
+
+	conn.WriteJSON(room)
+}
+
+func (h *WSHandler) JoinRoom(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	defer conn.Close()
 
 	roomID := c.Param("roomId")
 	clientID := c.Query("userId")
 	username := c.Query("username")
+
+	// Verify room exists in database
+	_, err = h.service.GetChatRoomByID(c.Request.Context(), roomID)
+	if err != nil {
+		conn.Close()
+		return
+	}
+
+	// Store join event in database
+	err = h.service.AddUserToChatRoom(c.Request.Context(), &services.AddUserToChatRoomReq{
+		UserID:     clientID,
+		ChatRoomID: roomID,
+	})
+	if err != nil {
+		conn.Close()
+		return
+	}
 
 	cl := &Client{
 		Conn:     conn,
@@ -65,13 +101,20 @@ func (h *Handler) JoinRoom(c *gin.Context) {
 		Username: username,
 	}
 
+	h.hub.Register <- cl
+
 	m := &Message{
 		Content:  "A new user has joined the room",
 		RoomID:   roomID,
 		Username: username,
 	}
 
-	h.hub.Register <- cl
+	h.service.CreateMessage(c.Request.Context(), &services.CreateMessageReq{
+		Content:  m.Content,
+		RoomID:   m.RoomID,
+		Username: m.Username,
+	})
+
 	h.hub.Broadcast <- m
 
 	go cl.writeMessage()
@@ -83,17 +126,28 @@ type RoomRes struct {
 	Name string `json:"name"`
 }
 
-func (h *Handler) GetRooms(c *gin.Context) {
-	rooms := make([]RoomRes, 0)
+func (h *WSHandler) GetRooms(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
 
-	for _, r := range h.hub.Rooms {
-		rooms = append(rooms, RoomRes{
+	rooms, err := h.service.GetAllChatRooms(c.Request.Context())
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	roomRes := make([]RoomRes, 0)
+	for _, r := range rooms {
+		roomRes = append(roomRes, RoomRes{
 			ID:   r.ID,
 			Name: r.Name,
 		})
 	}
 
-	c.JSON(http.StatusOK, rooms)
+	conn.WriteJSON(roomRes)
 }
 
 type ClientRes struct {
@@ -101,13 +155,26 @@ type ClientRes struct {
 	Username string `json:"username"`
 }
 
-func (h *Handler) GetClients(c *gin.Context) {
+func (h *WSHandler) GetRoomClients(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
 	var clients []ClientRes
 	roomId := c.Param("roomId")
 
-	if _, ok := h.hub.Rooms[roomId]; !ok {
+	room, err := h.service.GetChatRoomByID(c.Request.Context(), roomId)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": "Room not found"})
+		return
+	}
+
+	if _, ok := h.hub.Rooms[room.ID]; !ok {
 		clients = make([]ClientRes, 0)
-		c.JSON(http.StatusOK, clients)
+		conn.WriteJSON(clients)
+		return
 	}
 
 	for _, c := range h.hub.Rooms[roomId].Clients {
@@ -117,5 +184,88 @@ func (h *Handler) GetClients(c *gin.Context) {
 		})
 	}
 
-	c.JSON(http.StatusOK, clients)
+	conn.WriteJSON(clients)
+}
+
+func (h *WSHandler) GetMessagesByRoomID(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	roomID := c.Param("roomId")
+	limit, err := strconv.Atoi(c.Param("limit"))
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	messages, err := h.service.GetMessagesByRoomID(c.Request.Context(), roomID, limit)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	conn.WriteJSON(messages)
+}
+
+func (h *WSHandler) GetChatRoomsByUserID(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	userID := c.Param("userId")
+
+	res, err := h.service.GetChatRoomsByUserID(c.Request.Context(), userID)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	conn.WriteJSON(res)
+}
+
+func (h *WSHandler) UpdateChatRoom(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	var req services.UpdateChatRoomReq
+	err = conn.ReadJSON(&req)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	res, err := h.service.UpdateChatRoom(c.Request.Context(), &req)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	conn.WriteJSON(res)
+}
+
+func (h *WSHandler) DeleteChatRoom(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+
+	roomID := c.Param("roomId")
+
+	err = h.service.DeleteChatRoom(c.Request.Context(), roomID)
+	if err != nil {
+		conn.WriteJSON(gin.H{"error": err.Error()})
+		return
+	}
+
+	delete(h.hub.Rooms, roomID)
+	conn.WriteJSON(gin.H{"message": "Chat room deleted successfully"})
 }

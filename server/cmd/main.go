@@ -9,19 +9,35 @@ import (
 )
 
 func main() {
-	dbConn, err := db.NewDatabase()
+	// TODO: move to config file
+	dbConfig := &db.Config{
+		Host:     "localhost",
+		Port:     "5433",
+		User:     "postgres",
+		Password: "password",
+		DBName:   "chat-go",
+		SSLMode:  "disable",
+	}
+	dbConn, err := db.NewDatabase(dbConfig)
 	if err != nil {
 		log.Fatalf("Could not initialize database connection: %s", err)
 	}
 
-	userRep := db.NewRepository(dbConn.GetDB())
-	userSvc := services.NewService(userRep)
-	userHandler := services.NewHandler(userSvc)
+	// Initialize repository
+	repository := db.NewRepository(dbConn.GetDB())
 
+	// Initialize service
+	service := services.NewService(repository)
+
+	// Initialize handlers
+	userHandler := transport.NewUserHandler(service)
+
+	// Initialize WebSocket hub and handler
 	hub := transport.NewHub()
-	wsHandler := transport.NewHandler(hub)
+	wsHandler := transport.NewWSHandler(hub, &service)
 	go hub.Run()
 
+	// Initialize router with all handlers
 	router.InitRouter(userHandler, wsHandler)
 	router.Start("0.0.0.0:8080")
 }

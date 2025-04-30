@@ -6,15 +6,7 @@ import (
 )
 
 // UserStatus представляет собой тип для состояния пользователя
-// type UserStatus int
 type UserStatus string
-
-// const (
-// 	Online UserStatus = iota
-// 	Offline
-// 	Away
-// 	Banned
-// )
 
 const (
 	Online  string = "online"
@@ -25,7 +17,7 @@ const (
 
 // User представляет собой модель пользователя
 type User struct {
-	ID                int          `json:"id"`
+	ID                string       `json:"id"`
 	Username          string       `json:"username"`
 	EncryptedPassword string       `json:"encrypted_password"`
 	CreatedAt         time.Time    `json:"created_at"`
