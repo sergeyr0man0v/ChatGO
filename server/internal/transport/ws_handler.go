@@ -2,7 +2,6 @@ package transport
 
 import (
 	"net/http"
-	"server/internal/models"
 	"server/internal/services"
 	"strconv"
 
@@ -30,11 +29,11 @@ func NewWSHandler(h *Hub, service *services.Service) *WSHandler {
 	}
 }
 
-type CreateRoomReq struct {
-	ID   string              `json:"id"`
-	Name string              `json:"name"`
-	Type models.ChatRoomType `json:"type"`
-}
+// type CreateRoomReq struct {
+// 	ID   string              `json:"id"`
+// 	Name string              `json:"name"`
+// 	Type models.ChatRoomType `json:"type"`
+// }
 
 func (h *WSHandler) CreateRoom(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -44,19 +43,14 @@ func (h *WSHandler) CreateRoom(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	var req CreateRoomReq
+	var req services.CreateChatRoomReq
 	err = conn.ReadJSON(&req)
 	if err != nil {
 		conn.WriteJSON(gin.H{"error": err.Error()})
 		return
 	}
 
-	room, err := h.service.CreateChatRoom(c.Request.Context(), &services.CreateChatRoomReq{
-		ID:        req.ID,
-		Name:      req.Name,
-		Type:      req.Type,
-		CreatorID: c.Query("userId"),
-	})
+	room, err := h.service.CreateChatRoom(c.Request.Context(), &req)
 	if err != nil {
 		conn.WriteJSON(gin.H{"error": err.Error()})
 		return

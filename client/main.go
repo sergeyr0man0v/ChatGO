@@ -21,9 +21,10 @@ type User struct {
 }
 
 type Room struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-	Type string `json:"type"`
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Type      string `json:"type"`
+	CreatorID string `json:"creator_id"`
 }
 
 func roomExists(serverAddr string, roomID string) bool {
@@ -90,9 +91,10 @@ func main() {
 
 	if !roomExists(*serverAddr, *roomID) {
 		roomData := Room{
-			ID:   *roomID,
-			Name: *roomID,
-			Type: "group",
+			ID:        *roomID,
+			Name:      *roomID,
+			Type:      "group",
+			CreatorID: *username, // TODO: change to id
 		}
 		roomJSON, _ := json.Marshal(roomData)
 		resp, err = http.Post(*serverAddr+"/ws/createRoom", "application/json", bytes.NewBuffer(roomJSON))
@@ -108,7 +110,7 @@ func main() {
 		log.Printf("Room %s already exists, joining...", *roomID)
 	}
 
-	wsURL := fmt.Sprintf("ws://localhost:8080/ws/joinRoom/%s", *roomID)
+	wsURL := fmt.Sprintf("ws://localhost:8080/ws/joinRoom/%s?userId=%s&username=%s", *roomID, *username, *username)
 	log.Printf("Connecting to WebSocket server at: %s", wsURL)
 
 	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
