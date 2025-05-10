@@ -8,6 +8,7 @@ import (
 
 // CreateChatRoomReq содержит данные для создания новой чат-комнаты
 type CreateChatRoomReq struct {
+	ID        string              `json:"id"`
 	Name      string              `json:"name"`
 	Type      models.ChatRoomType `json:"type"`
 	CreatorID string              `json:"creator_id"`
@@ -54,6 +55,7 @@ func (s *service) CreateChatRoom(c context.Context, req *CreateChatRoomReq) (*Ch
 	defer cancel()
 
 	chatRoom, err := s.Repository.CreateChatRoom(ctx, &models.ChatRoom{
+		ID:        req.ID,
 		Name:      req.Name,
 		Type:      req.Type,
 		CreatorID: req.CreatorID,
