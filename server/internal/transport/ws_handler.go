@@ -126,7 +126,7 @@ type RoomRes struct {
 	Name string `json:"name"`
 }
 
-func (h *WSHandler) GetRooms(c *gin.Context) {
+func (h *WSHandler) GetAllRooms(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		return
@@ -217,7 +217,7 @@ func (h *WSHandler) GetChatRoomsByUserID(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	userID := c.Param("userId")
+	userID := c.Query("userId")
 
 	res, err := h.service.GetChatRoomsByUserID(c.Request.Context(), userID)
 	if err != nil {

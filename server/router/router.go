@@ -32,14 +32,14 @@ func InitRouter(
 	r.GET("/users", userHandler.GetAllUsers)
 
 	// WebSocket routes
-	r.GET("/rooms/:roomId/messages", wsHandler.GetMessagesByRoomID)
-	r.GET("/rooms/:userId/rooms", wsHandler.GetChatRoomsByUserID)
-	r.PUT("/rooms/:roomId", wsHandler.UpdateChatRoom)
-	r.DELETE("/rooms/:roomId", wsHandler.DeleteChatRoom)
+	r.GET("/ws/getMessages/:roomId", wsHandler.GetMessagesByRoomID)
+	r.GET("/ws/getRooms", wsHandler.GetChatRoomsByUserID)
+	r.PUT("/ws/updateRoom", wsHandler.UpdateChatRoom)
+	r.DELETE("/ws/deleteRoom/:roomId", wsHandler.DeleteChatRoom)
 
 	r.POST("/ws/createRoom", wsHandler.CreateRoom)
 	r.GET("/ws/joinRoom/:roomId", wsHandler.JoinRoom)
-	r.GET("/ws/getRooms", wsHandler.GetRooms)
+	r.GET("/ws/getAllRooms", wsHandler.GetAllRooms)
 	r.GET("/ws/getRoomClients/:roomId", wsHandler.GetRoomClients)
 }
 

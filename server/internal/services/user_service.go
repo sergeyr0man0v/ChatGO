@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"server/internal/models"
@@ -91,11 +92,13 @@ func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, er
 
 	u, err := s.Repository.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		fmt.Println("After getting user by username")
 		return &LoginUserRes{}, err
 	}
 
-	err = util.CheckPassword(req.Password, u.EncryptedPassword) // Вопросики
+	err = util.CheckPassword(req.Password, u.EncryptedPassword)
 	if err != nil {
+		fmt.Println("After checking password")
 		return &LoginUserRes{}, err
 	}
 
@@ -110,6 +113,7 @@ func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, er
 
 	ss, err := token.SignedString([]byte(secretKey))
 	if err != nil {
+		fmt.Println("After signing token")
 		return &LoginUserRes{}, err
 	}
 
