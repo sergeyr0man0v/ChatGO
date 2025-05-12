@@ -1,24 +1,13 @@
 package transport
 
 import (
+	"chatgo/server/internal/interfaces"
+	"context"
 	"log"
 
+	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 )
-
-type Client struct {
-	Conn     *websocket.Conn
-	Message  chan *Message
-	ID       string `json:"id"`
-	RoomID   string `json:"roomId"`
-	Username string `json:"username"`
-}
-
-type Message struct {
-	Content  string `json:"content"`
-	RoomID   string `json:"roomId"`
-	Username string `json:"username"`
-}
 
 func (c *Client) writeMessage() {
 	defer func() {
@@ -37,25 +26,53 @@ func (c *Client) writeMessage() {
 
 func (c *Client) readMessage(hub *Hub) {
 	defer func() {
+		// Store system message about user leaving
+		_, err := hub.service.CreateMessage(context.Background(), &interfaces.CreateMessageReq{
+			Content:  "User left the chat",
+			RoomID:   c.RoomID,
+			Username: c.Username,
+		})
+		if err != nil {
+			log.Printf("Failed to store system message: %v", err)
+		}
+
 		hub.Unregister <- c
 		c.Conn.Close()
 	}()
 
 	for {
-		_, m, err := c.Conn.ReadMessage()
+		var message Message
+		err := c.Conn.ReadJSON(&message)
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				log.Printf("WebSocket error: %v", err)
 			}
 			break
 		}
 
-		msg := &Message{
-			Content:  string(m),
-			RoomID:   c.RoomID,
-			Username: c.Username,
+		// Set RoomID from client's current room
+		message.RoomID = c.RoomID
+
+		// Validate message
+		if message.Content == "" || message.Username == "" {
+			log.Printf("Invalid message format: %+v", message)
+			c.Conn.WriteJSON(gin.H{"error": "Invalid message format"})
+			continue
 		}
 
-		hub.Broadcast <- msg
+		// Store message in database
+		_, err = hub.service.CreateMessage(context.Background(), &interfaces.CreateMessageReq{
+			Content:  message.Content,
+			RoomID:   message.RoomID,
+			Username: message.Username,
+		})
+		if err != nil {
+			log.Printf("Failed to store message: %v", err)
+			c.Conn.WriteJSON(gin.H{"error": "Failed to store message"})
+			continue
+		}
+
+		// Broadcast message to room
+		hub.Broadcast <- &message
 	}
 }

@@ -1,7 +1,7 @@
 package router
 
 import (
-	"server/internal/transport"
+	"chatgo/server/internal/transport"
 
 	"github.com/gin-gonic/gin"
 )

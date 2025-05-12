@@ -1,7 +1,7 @@
 package services
 
 import (
-	"server/internal/models"
+	"chatgo/server/internal/models"
 	"time"
 )
 
@@ -39,7 +39,6 @@ type Service interface {
 	UserService
 	MessageService
 	ChatRoomService
-	// ChatRoomMemberService
 }
 
 type service struct {

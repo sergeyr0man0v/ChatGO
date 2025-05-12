@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"server/internal/models"
-	"server/internal/util"
+	"chatgo/server/internal/interfaces"
+	"chatgo/server/internal/models"
+	"chatgo/server/internal/util"
 
 	"github.com/golang-jwt/jwt/v4"
 )
@@ -15,45 +16,14 @@ const (
 	secretKey = "secret" // should further on store in a separate file
 )
 
-type CreateUserReq struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type CreateUserRes struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-}
-
-type LoginUserReq struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type LoginUserRes struct {
-	AccessToken string // should be private
-	ID          string `json:"id"`
-	Username    string `json:"username"`
-}
-
-type GetUserReq struct {
-	ID string `json:"id"`
-}
-
-type GetUserRes struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-	Status   string `json:"status"`
-}
-
 type UserService interface {
-	CreateUser(c context.Context, req *CreateUserReq) (*CreateUserRes, error)
-	Login(c context.Context, req *LoginUserReq) (*LoginUserRes, error)
-	GetUserByID(c context.Context, req *GetUserReq) (*GetUserRes, error)
-	GetAllUsers(c context.Context) ([]*GetUserRes, error)
+	CreateUser(c context.Context, req *interfaces.CreateUserReq) (*interfaces.CreateUserRes, error)
+	Login(c context.Context, req *interfaces.LoginUserReq) (*interfaces.LoginUserRes, error)
+	GetUserByID(c context.Context, req *interfaces.GetUserReq) (*interfaces.GetUserRes, error)
+	GetAllUsers(c context.Context) ([]*interfaces.GetUserRes, error)
 }
 
-func (s *service) CreateUser(c context.Context, req *CreateUserReq) (*CreateUserRes, error) {
+func (s *service) CreateUser(c context.Context, req *interfaces.CreateUserReq) (*interfaces.CreateUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -65,6 +35,7 @@ func (s *service) CreateUser(c context.Context, req *CreateUserReq) (*CreateUser
 	u := &models.User{
 		Username:          req.Username,
 		EncryptedPassword: hashedPassword,
+		Status:            models.UserStatus(models.Offline),
 	}
 
 	r, err := s.Repository.CreateUser(ctx, u)
@@ -72,7 +43,7 @@ func (s *service) CreateUser(c context.Context, req *CreateUserReq) (*CreateUser
 		return nil, err
 	}
 
-	res := &CreateUserRes{
+	res := &interfaces.CreateUserRes{
 		ID:       r.ID,
 		Username: r.Username,
 	}
@@ -86,20 +57,20 @@ type MyJWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, error) {
+func (s *service) Login(c context.Context, req *interfaces.LoginUserReq) (*interfaces.LoginUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
 	u, err := s.Repository.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		fmt.Println("After getting user by username")
-		return &LoginUserRes{}, err
+		return &interfaces.LoginUserRes{}, err
 	}
 
 	err = util.CheckPassword(req.Password, u.EncryptedPassword)
 	if err != nil {
 		fmt.Println("After checking password")
-		return &LoginUserRes{}, err
+		return &interfaces.LoginUserRes{}, err
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, MyJWTClaims{
@@ -114,13 +85,13 @@ func (s *service) Login(c context.Context, req *LoginUserReq) (*LoginUserRes, er
 	ss, err := token.SignedString([]byte(secretKey))
 	if err != nil {
 		fmt.Println("After signing token")
-		return &LoginUserRes{}, err
+		return &interfaces.LoginUserRes{}, err
 	}
 
-	return &LoginUserRes{AccessToken: ss, Username: u.Username, ID: u.ID}, nil
+	return &interfaces.LoginUserRes{AccessToken: ss, Username: u.Username, ID: u.ID}, nil
 }
 
-func (s *service) GetUserByID(c context.Context, req *GetUserReq) (*GetUserRes, error) {
+func (s *service) GetUserByID(c context.Context, req *interfaces.GetUserReq) (*interfaces.GetUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -129,14 +100,13 @@ func (s *service) GetUserByID(c context.Context, req *GetUserReq) (*GetUserRes, 
 		return nil, err
 	}
 
-	return &GetUserRes{
+	return &interfaces.GetUserRes{
 		ID:       u.ID,
 		Username: u.Username,
-		Status:   string(u.Status),
 	}, nil
 }
 
-func (s *service) GetAllUsers(c context.Context) ([]*GetUserRes, error) {
+func (s *service) GetAllUsers(c context.Context) ([]*interfaces.GetUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -145,12 +115,11 @@ func (s *service) GetAllUsers(c context.Context) ([]*GetUserRes, error) {
 		return nil, err
 	}
 
-	result := make([]*GetUserRes, len(users))
+	result := make([]*interfaces.GetUserRes, len(users))
 	for _, u := range users {
-		result = append(result, &GetUserRes{
+		result = append(result, &interfaces.GetUserRes{
 			ID:       u.ID,
 			Username: u.Username,
-			Status:   string(u.Status),
 		})
 	}
 

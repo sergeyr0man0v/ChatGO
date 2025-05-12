@@ -1,18 +1,12 @@
 package services
 
 import (
+	"chatgo/server/internal/interfaces"
+	"chatgo/server/internal/models"
 	"context"
-	"server/internal/models"
+	"fmt"
 	"time"
 )
-
-// CreateChatRoomReq содержит данные для создания новой чат-комнаты
-type CreateChatRoomReq struct {
-	ID        string              `json:"id"`
-	Name      string              `json:"name"`
-	Type      models.ChatRoomType `json:"type"`
-	CreatorID string              `json:"creator_id"`
-}
 
 // ChatRoomRes представляет информацию о чат-комнате в ответах сервера
 type ChatRoomRes struct {
@@ -23,59 +17,48 @@ type ChatRoomRes struct {
 	CreatedAt time.Time           `json:"created_at"`
 }
 
-// UpdateChatRoomReq содержит данные для обновления существующей чат-комнаты
-type UpdateChatRoomReq struct {
-	ID        string              `json:"id"`
-	Name      string              `json:"name"`
-	Type      models.ChatRoomType `json:"type"`
-	CreatorID string              `json:"creator_id"`
-}
-
-// AddUserToChatRoomReq содержит идентификаторы пользователя и чат-комнаты для операций с участниками
-type AddUserToChatRoomReq struct {
-	UserID     string `json:"user_id"`
-	ChatRoomID string `json:"chat_room_id"`
-}
-
 // ChatRoomService определяет методы для работы с чат-комнатами
 type ChatRoomService interface {
-	CreateChatRoom(c context.Context, req *CreateChatRoomReq) (*ChatRoomRes, error)
-	GetChatRoomByID(c context.Context, roomID string) (*ChatRoomRes, error)
-	GetChatRoomsByUserID(c context.Context, userID string) ([]*ChatRoomRes, error)
-	GetAllChatRooms(c context.Context) ([]*ChatRoomRes, error)
-	UpdateChatRoom(c context.Context, req *UpdateChatRoomReq) (*ChatRoomRes, error)
+	CreateChatRoom(c context.Context, req *interfaces.CreateChatRoomReq) (*interfaces.CreateChatRoomRes, error)
+	GetChatRoomByID(c context.Context, roomID string) (*interfaces.CreateChatRoomRes, error)
+	GetChatRoomsByUserID(c context.Context, userID string) ([]*interfaces.CreateChatRoomRes, error)
+	GetAllChatRooms(c context.Context) ([]*interfaces.CreateChatRoomRes, error)
+	UpdateChatRoom(c context.Context, req *interfaces.UpdateChatRoomReq) (*interfaces.CreateChatRoomRes, error)
 	DeleteChatRoom(c context.Context, roomID string) error
-	AddUserToChatRoom(c context.Context, req *AddUserToChatRoomReq) error
-	RemoveUserFromChatRoom(c context.Context, req *AddUserToChatRoomReq) error
+	AddUserToChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error
+	RemoveUserFromChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error
+	GetMembersByChatRoomID(c context.Context, roomID string) ([]*models.ChatRoomMember, error)
 }
 
 // CreateChatRoom создает новую чат-комнату с указанными параметрами и возвращает информацию о созданной комнате
-func (s *service) CreateChatRoom(c context.Context, req *CreateChatRoomReq) (*ChatRoomRes, error) {
+func (s *service) CreateChatRoom(c context.Context, req *interfaces.CreateChatRoomReq) (*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
+	// Get user from context
+	userID, ok := c.Value("user_id").(string)
+	if !ok {
+		return nil, fmt.Errorf("user not authenticated")
+	}
+
 	chatRoom, err := s.Repository.CreateChatRoom(ctx, &models.ChatRoom{
-		ID:        req.ID,
 		Name:      req.Name,
-		Type:      req.Type,
-		CreatorID: req.CreatorID,
+		Type:      models.Group,
+		CreatorID: userID,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	return &ChatRoomRes{
-		ID:        chatRoom.ID,
-		Name:      chatRoom.Name,
-		Type:      chatRoom.Type,
-		CreatorID: chatRoom.CreatorID,
-		CreatedAt: chatRoom.CreatedAt,
+	return &interfaces.CreateChatRoomRes{
+		ID:   chatRoom.ID,
+		Name: chatRoom.Name,
 	}, nil
 }
 
 // GetChatRoomByID возвращает информацию о чат-комнате по её идентификатору
-func (s *service) GetChatRoomByID(c context.Context, roomID string) (*ChatRoomRes, error) {
+func (s *service) GetChatRoomByID(c context.Context, roomID string) (*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -84,17 +67,14 @@ func (s *service) GetChatRoomByID(c context.Context, roomID string) (*ChatRoomRe
 		return nil, err
 	}
 
-	return &ChatRoomRes{
-		ID:        chatRoom.ID,
-		Name:      chatRoom.Name,
-		Type:      chatRoom.Type,
-		CreatorID: chatRoom.CreatorID,
-		CreatedAt: chatRoom.CreatedAt,
+	return &interfaces.CreateChatRoomRes{
+		ID:   chatRoom.ID,
+		Name: chatRoom.Name,
 	}, nil
 }
 
 // GetAllChatRooms возвращает информацию о всех чат-комнатах
-func (s *service) GetAllChatRooms(c context.Context) ([]*ChatRoomRes, error) {
+func (s *service) GetAllChatRooms(c context.Context) ([]*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -103,14 +83,11 @@ func (s *service) GetAllChatRooms(c context.Context) ([]*ChatRoomRes, error) {
 		return nil, err
 	}
 
-	result := make([]*ChatRoomRes, 0, len(chatRooms))
+	result := make([]*interfaces.CreateChatRoomRes, 0, len(chatRooms))
 	for _, chatRoom := range chatRooms {
-		result = append(result, &ChatRoomRes{
-			ID:        chatRoom.ID,
-			Name:      chatRoom.Name,
-			Type:      chatRoom.Type,
-			CreatorID: chatRoom.CreatorID,
-			CreatedAt: chatRoom.CreatedAt,
+		result = append(result, &interfaces.CreateChatRoomRes{
+			ID:   chatRoom.ID,
+			Name: chatRoom.Name,
 		})
 	}
 
@@ -118,7 +95,7 @@ func (s *service) GetAllChatRooms(c context.Context) ([]*ChatRoomRes, error) {
 }
 
 // GetChatRoomsByUserID возвращает список всех чат-комнат, в которых пользователь является участником
-func (s *service) GetChatRoomsByUserID(c context.Context, userID string) ([]*ChatRoomRes, error) {
+func (s *service) GetChatRoomsByUserID(c context.Context, userID string) ([]*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -127,14 +104,11 @@ func (s *service) GetChatRoomsByUserID(c context.Context, userID string) ([]*Cha
 		return nil, err
 	}
 
-	result := make([]*ChatRoomRes, 0, len(chatRooms))
+	result := make([]*interfaces.CreateChatRoomRes, 0, len(chatRooms))
 	for _, chatRoom := range chatRooms {
-		result = append(result, &ChatRoomRes{
-			ID:        chatRoom.ID,
-			Name:      chatRoom.Name,
-			Type:      chatRoom.Type,
-			CreatorID: chatRoom.CreatorID,
-			CreatedAt: chatRoom.CreatedAt,
+		result = append(result, &interfaces.CreateChatRoomRes{
+			ID:   chatRoom.ID,
+			Name: chatRoom.Name,
 		})
 	}
 
@@ -142,15 +116,13 @@ func (s *service) GetChatRoomsByUserID(c context.Context, userID string) ([]*Cha
 }
 
 // UpdateChatRoom обновляет существующую чат-комнату новыми данными
-func (s *service) UpdateChatRoom(c context.Context, req *UpdateChatRoomReq) (*ChatRoomRes, error) {
+func (s *service) UpdateChatRoom(c context.Context, req *interfaces.UpdateChatRoomReq) (*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
 	chatRoom := &models.ChatRoom{
-		ID:        req.ID,
-		Name:      req.Name,
-		Type:      req.Type,
-		CreatorID: req.CreatorID,
+		ID:   req.ID,
+		Name: req.Name,
 	}
 
 	updatedRoom, err := s.Repository.UpdateChatRoom(ctx, chatRoom)
@@ -158,12 +130,9 @@ func (s *service) UpdateChatRoom(c context.Context, req *UpdateChatRoomReq) (*Ch
 		return nil, err
 	}
 
-	return &ChatRoomRes{
-		ID:        updatedRoom.ID,
-		Name:      updatedRoom.Name,
-		Type:      updatedRoom.Type,
-		CreatorID: updatedRoom.CreatorID,
-		CreatedAt: updatedRoom.CreatedAt,
+	return &interfaces.CreateChatRoomRes{
+		ID:   updatedRoom.ID,
+		Name: updatedRoom.Name,
 	}, nil
 }
 
@@ -180,13 +149,15 @@ func (s *service) DeleteChatRoom(c context.Context, roomID string) error {
 }
 
 // AddUserToChatRoom добавляет нового участника в существующую чат-комнату
-func (s *service) AddUserToChatRoom(c context.Context, req *AddUserToChatRoomReq) error {
+func (s *service) AddUserToChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
 	member := &models.ChatRoomMember{
 		UserID:     req.UserID,
 		ChatRoomID: req.ChatRoomID,
+		MemberRole: models.Member,
+		JoinedAt:   time.Now(),
 	}
 
 	_, err := s.Repository.AddMember(ctx, member)
@@ -194,7 +165,7 @@ func (s *service) AddUserToChatRoom(c context.Context, req *AddUserToChatRoomReq
 }
 
 // RemoveUserFromChatRoom удаляет участника из чат-комнаты
-func (s *service) RemoveUserFromChatRoom(c context.Context, req *AddUserToChatRoomReq) error {
+func (s *service) RemoveUserFromChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -204,4 +175,12 @@ func (s *service) RemoveUserFromChatRoom(c context.Context, req *AddUserToChatRo
 	}
 
 	return s.Repository.DeleteMember(ctx, member)
+}
+
+// GetMembersByChatRoomID returns all members of a chat room
+func (s *service) GetMembersByChatRoomID(c context.Context, roomID string) ([]*models.ChatRoomMember, error) {
+	ctx, cancel := context.WithTimeout(c, s.timeout)
+	defer cancel()
+
+	return s.Repository.GetMembersByChatRoomID(ctx, roomID)
 }

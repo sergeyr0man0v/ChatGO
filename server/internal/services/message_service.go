@@ -1,31 +1,18 @@
 package services
 
 import (
+	"chatgo/server/internal/interfaces"
+	"chatgo/server/internal/models"
 	"context"
-	"server/internal/models"
 	"time"
 )
 
-type CreateMessageReq struct {
-	Content  string `json:"content"`
-	RoomID   string `json:"room_id"`
-	Username string `json:"username"`
-}
-
-type MessageRes struct {
-	ID        string    `json:"id"`
-	Content   string    `json:"content"`
-	RoomID    string    `json:"room_id"`
-	Username  string    `json:"username"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
 type MessageService interface {
-	CreateMessage(c context.Context, req *CreateMessageReq) (*MessageRes, error)
-	GetMessagesByRoomID(c context.Context, roomID string, limit int) ([]*MessageRes, error)
+	CreateMessage(c context.Context, req *interfaces.CreateMessageReq) (*interfaces.CreateMessageRes, error)
+	GetMessagesByRoomID(c context.Context, roomID string, limit int) ([]*interfaces.CreateMessageRes, error)
 }
 
-func (s *service) CreateMessage(c context.Context, req *CreateMessageReq) (*MessageRes, error) {
+func (s *service) CreateMessage(c context.Context, req *interfaces.CreateMessageReq) (*interfaces.CreateMessageRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -43,16 +30,16 @@ func (s *service) CreateMessage(c context.Context, req *CreateMessageReq) (*Mess
 		return nil, err
 	}
 
-	return &MessageRes{
+	return &interfaces.CreateMessageRes{
 		ID:        message.ID,
 		Content:   message.EncryptedContent,
 		RoomID:    message.ChatRoomID,
 		Username:  user.Username,
-		CreatedAt: message.CreatedAt,
+		CreatedAt: message.CreatedAt.Format(time.RFC3339),
 	}, nil
 }
 
-func (s *service) GetMessagesByRoomID(c context.Context, roomID string, limit int) ([]*MessageRes, error) {
+func (s *service) GetMessagesByRoomID(c context.Context, roomID string, limit int) ([]*interfaces.CreateMessageRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
 
@@ -61,18 +48,18 @@ func (s *service) GetMessagesByRoomID(c context.Context, roomID string, limit in
 		return nil, err
 	}
 
-	result := make([]*MessageRes, len(messages))
+	result := make([]*interfaces.CreateMessageRes, len(messages))
 	for i, message := range messages {
 		user, err := s.Repository.GetUserByID(ctx, message.SenderID)
 		if err != nil {
 			return nil, err
 		}
-		result[i] = &MessageRes{
+		result[i] = &interfaces.CreateMessageRes{
 			ID:        message.ID,
 			Content:   message.EncryptedContent,
 			RoomID:    message.ChatRoomID,
 			Username:  user.Username,
-			CreatedAt: message.CreatedAt,
+			CreatedAt: message.CreatedAt.Format(time.RFC3339),
 		}
 	}
 

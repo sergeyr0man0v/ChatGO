@@ -1,9 +1,9 @@
 package db
 
 import (
+	"chatgo/server/internal/models"
 	"context"
 	"database/sql"
-	"server/internal/models"
 )
 
 // CreateChatRoom создает новый чат, усталивая created_at CURRENT_TIMESTAMP.
@@ -41,9 +41,9 @@ func (r *repository) CreateChatRoom(ctx context.Context, chatRoom *models.ChatRo
 		MemberRole: models.Admin,
 	}
 
-	memberQuery := `INSERT INTO chat_room_members (user_id, chat_room_id, member_role, joined_at)
+	memberQuery := `INSERT INTO chat_room_members (user_id, chat_room_id, role, joined_at)
 					VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-					RETURNING user_id, chat_room_id, member_role, joined_at`
+					RETURNING user_id, chat_room_id, role, joined_at`
 
 	err = tx.QueryRowContext(ctx, memberQuery,
 		member.UserID,

@@ -2,29 +2,31 @@ package main
 
 import (
 	"log"
-	"server/internal/db"
-	"server/internal/services"
-	"server/internal/transport"
-	"server/router"
+
+	"chatgo/server/internal/db"
+	"chatgo/server/internal/services"
+	"chatgo/server/internal/transport"
+	"chatgo/server/router"
 )
 
 func main() {
-	// TODO: move to config file
 	dbConfig := &db.Config{
 		Host:     "localhost",
-		Port:     "5433",
+		Port:     "5434",
 		User:     "postgres",
 		Password: "password",
 		DBName:   "chat-go",
 		SSLMode:  "disable",
 	}
-	dbConn, err := db.NewDatabase(dbConfig)
+
+	database, err := db.NewDatabase(dbConfig)
 	if err != nil {
-		log.Fatalf("Could not initialize database connection: %s", err)
+		log.Fatalf("Could not initialize the database: %v", err)
 	}
+	defer database.Close()
 
 	// Initialize repository
-	repository := db.NewRepository(dbConn.GetDB())
+	repository := db.NewRepository(database.GetDB())
 
 	// Initialize service
 	service := services.NewService(repository)
@@ -33,8 +35,8 @@ func main() {
 	userHandler := transport.NewUserHandler(service)
 
 	// Initialize WebSocket hub and handler
-	hub := transport.NewHub()
-	wsHandler := transport.NewWSHandler(hub, &service)
+	hub := transport.NewHub(service)
+	wsHandler := transport.NewWSHandler(hub, service)
 	go hub.Run()
 
 	// Initialize router with all handlers

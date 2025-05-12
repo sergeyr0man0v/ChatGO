@@ -1,8 +1,8 @@
 package db
 
 import (
+	"chatgo/server/internal/models"
 	"context"
-	"server/internal/models"
 )
 
 // CreateMessage добавляет новое сообщение в базу данных, устанавливает created_at и updated_at CURRENT_TIMESTAMP
@@ -12,11 +12,11 @@ func (r *repository) CreateMessage(ctx context.Context, message *models.Message)
 			sender_id, 
 			chat_room_id, 
 			encrypted_content,
-			reply_to_message_id,
 			created_at,
 			updated_at,
 			is_edited
-		) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)`
+		) VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, false)
+		RETURNING id, sender_id, chat_room_id, encrypted_content, created_at, updated_at, is_edited`
 
 	err := r.db.QueryRowContext(
 		ctx,
@@ -24,13 +24,11 @@ func (r *repository) CreateMessage(ctx context.Context, message *models.Message)
 		message.SenderID,
 		message.ChatRoomID,
 		message.EncryptedContent,
-		message.ReplyToMessageID,
 	).Scan(
 		&message.ID,
 		&message.SenderID,
 		&message.ChatRoomID,
 		&message.EncryptedContent,
-		&message.ReplyToMessageID,
 		&message.CreatedAt,
 		&message.UpdatedAt,
 		&message.IsEdited,
@@ -39,6 +37,7 @@ func (r *repository) CreateMessage(ctx context.Context, message *models.Message)
 	if err != nil {
 		return nil, err
 	}
+
 	return message, nil
 }
 

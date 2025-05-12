@@ -1,8 +1,8 @@
 package db
 
 import (
+	"chatgo/server/internal/models"
 	"context"
-	"server/internal/models"
 )
 
 // AddMember вставляет нового участника чата в базу данных

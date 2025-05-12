@@ -1,8 +1,10 @@
 package transport
 
 import (
+	"chatgo/server/internal/interfaces"
+	"context"
+	"log"
 	"net/http"
-	"server/internal/services"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -19,13 +21,13 @@ var upgrader = websocket.Upgrader{
 
 type WSHandler struct {
 	hub     *Hub
-	service services.Service
+	service interfaces.Service
 }
 
-func NewWSHandler(h *Hub, service *services.Service) *WSHandler {
+func NewWSHandler(h *Hub, service interfaces.Service) *WSHandler {
 	return &WSHandler{
 		hub:     h,
-		service: *service,
+		service: service,
 	}
 }
 
@@ -36,23 +38,25 @@ func NewWSHandler(h *Hub, service *services.Service) *WSHandler {
 // }
 
 func (h *WSHandler) CreateRoom(c *gin.Context) {
-	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
-	if err != nil {
+	var req interfaces.CreateChatRoomReq
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	defer conn.Close()
 
-	var req services.CreateChatRoomReq
-	err = conn.ReadJSON(&req)
-	if err != nil {
-		conn.WriteJSON(gin.H{"error": err.Error()})
+	// Get user ID from query parameters
+	userID := c.Query("userId")
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user ID is required"})
 		return
 	}
 
-	room, err := h.service.CreateChatRoom(c.Request.Context(), &req)
+	// Set user ID in context
+	ctx := context.WithValue(c.Request.Context(), "user_id", userID)
+
+	room, err := h.service.CreateChatRoom(ctx, &req)
 	if err != nil {
-		conn.WriteJSON(gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -62,12 +66,43 @@ func (h *WSHandler) CreateRoom(c *gin.Context) {
 		Clients: make(map[string]*Client),
 	}
 
-	conn.WriteJSON(room)
+	c.JSON(http.StatusOK, room)
+}
+
+// ensureDefaultRoom creates a default room if it doesn't exist
+func (h *WSHandler) ensureDefaultRoom(ctx context.Context, userID string) (string, error) {
+	// Check if default room exists
+	rooms, err := h.service.GetAllChatRooms(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Look for a room named "Default"
+	for _, room := range rooms {
+		if room.Name == "Default" {
+			return room.ID, nil
+		}
+	}
+
+	// Set user ID in context for room creation
+	ctx = context.WithValue(ctx, "user_id", userID)
+
+	// Create default room if it doesn't exist
+	defaultRoom, err := h.service.CreateChatRoom(ctx, &interfaces.CreateChatRoomReq{
+		Name: "Default",
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return defaultRoom.ID, nil
 }
 
 func (h *WSHandler) JoinRoom(c *gin.Context) {
+	log.Printf("New WebSocket connection request")
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		log.Printf("Failed to upgrade connection: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -77,21 +112,91 @@ func (h *WSHandler) JoinRoom(c *gin.Context) {
 	clientID := c.Query("userId")
 	username := c.Query("username")
 
-	// Verify room exists in database
-	_, err = h.service.GetChatRoomByID(c.Request.Context(), roomID)
-	if err != nil {
+	if clientID == "" {
+		log.Printf("User ID is required")
+		conn.WriteJSON(gin.H{"error": "User ID is required"})
 		conn.Close()
 		return
 	}
 
-	// Store join event in database
-	err = h.service.AddUserToChatRoom(c.Request.Context(), &services.AddUserToChatRoomReq{
-		UserID:     clientID,
-		ChatRoomID: roomID,
-	})
+	log.Printf("Client %s (username: %s) attempting to join room %s", clientID, username, roomID)
+
+	// Handle "default" room ID
+	if roomID == "default" {
+		defaultRoomID, err := h.ensureDefaultRoom(c.Request.Context(), clientID)
+		if err != nil {
+			log.Printf("Failed to ensure default room: %v", err)
+			conn.WriteJSON(gin.H{"error": "Failed to create default room"})
+			conn.Close()
+			return
+		}
+		roomID = defaultRoomID
+	}
+
+	// Convert string IDs to integers
+	roomIDInt, err := strconv.ParseInt(roomID, 10, 64)
 	if err != nil {
+		log.Printf("Invalid room ID format: %s", roomID)
+		conn.WriteJSON(gin.H{"error": "Invalid room ID format"})
 		conn.Close()
 		return
+	}
+	clientIDInt, err := strconv.ParseInt(clientID, 10, 64)
+	if err != nil {
+		log.Printf("Invalid user ID format: %s", clientID)
+		conn.WriteJSON(gin.H{"error": "Invalid user ID format"})
+		conn.Close()
+		return
+	}
+
+	// Verify room exists in database
+	room, err := h.service.GetChatRoomByID(c.Request.Context(), strconv.FormatInt(roomIDInt, 10))
+	if err != nil {
+		log.Printf("Room not found: %s", roomID)
+		conn.WriteJSON(gin.H{"error": "Room not found"})
+		conn.Close()
+		return
+	}
+
+	// Check if user is already a member of the room
+	members, err := h.service.GetMembersByChatRoomID(c.Request.Context(), strconv.FormatInt(roomIDInt, 10))
+	if err != nil {
+		log.Printf("Failed to get room members: %v", err)
+		conn.WriteJSON(gin.H{"error": "Failed to get room members"})
+		conn.Close()
+		return
+	}
+
+	isMember := false
+	for _, member := range members {
+		if member.UserID == strconv.FormatInt(clientIDInt, 10) {
+			isMember = true
+			break
+		}
+	}
+
+	// Only add user to room if they're not already a member
+	if !isMember {
+		err = h.service.AddUserToChatRoom(c.Request.Context(), &interfaces.AddUserToChatRoomReq{
+			UserID:     strconv.FormatInt(clientIDInt, 10),
+			ChatRoomID: strconv.FormatInt(roomIDInt, 10),
+		})
+		if err != nil {
+			log.Printf("Failed to add user to room: %v", err)
+			conn.WriteJSON(gin.H{"error": "Failed to add user to room"})
+			conn.Close()
+			return
+		}
+	}
+
+	// Create room in hub if it doesn't exist
+	if _, ok := h.hub.Rooms[roomID]; !ok {
+		log.Printf("Creating new room in hub: %s", roomID)
+		h.hub.Rooms[roomID] = &Room{
+			ID:      roomID,
+			Name:    room.Name,
+			Clients: make(map[string]*Client),
+		}
 	}
 
 	cl := &Client{
@@ -102,6 +207,7 @@ func (h *WSHandler) JoinRoom(c *gin.Context) {
 		Username: username,
 	}
 
+	log.Printf("Registering client %s in room %s", clientID, roomID)
 	h.hub.Register <- cl
 
 	m := &Message{
@@ -110,21 +216,21 @@ func (h *WSHandler) JoinRoom(c *gin.Context) {
 		Username: username,
 	}
 
-	h.service.CreateMessage(c.Request.Context(), &services.CreateMessageReq{
+	// Store system message in database
+	_, err = h.service.CreateMessage(c.Request.Context(), &interfaces.CreateMessageReq{
 		Content:  m.Content,
 		RoomID:   m.RoomID,
 		Username: m.Username,
 	})
+	if err != nil {
+		log.Printf("Failed to store system message: %v", err)
+	}
 
+	log.Printf("Broadcasting join message to room %s", roomID)
 	h.hub.Broadcast <- m
 
 	go cl.writeMessage()
 	cl.readMessage(h.hub)
-}
-
-type RoomRes struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
 }
 
 func (h *WSHandler) GetAllRooms(c *gin.Context) {
@@ -151,11 +257,6 @@ func (h *WSHandler) GetAllRooms(c *gin.Context) {
 	conn.WriteJSON(roomRes)
 }
 
-type ClientRes struct {
-	ID       string `json:"id"`
-	Username string `json:"username"`
-}
-
 func (h *WSHandler) GetRoomClients(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
@@ -163,21 +264,21 @@ func (h *WSHandler) GetRoomClients(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	var clients []ClientRes
 	roomId := c.Param("roomId")
 
 	room, err := h.service.GetChatRoomByID(c.Request.Context(), roomId)
 	if err != nil {
-		conn.WriteJSON(gin.H{"error": "Room not found"})
+		// Return empty array instead of error object
+		conn.WriteJSON(make([]ClientRes, 0))
 		return
 	}
 
 	if _, ok := h.hub.Rooms[room.ID]; !ok {
-		clients = make([]ClientRes, 0)
-		conn.WriteJSON(clients)
+		conn.WriteJSON(make([]ClientRes, 0))
 		return
 	}
 
+	clients := make([]ClientRes, 0)
 	for _, c := range h.hub.Rooms[roomId].Clients {
 		clients = append(clients, ClientRes{
 			ID:       c.ID,
@@ -236,7 +337,7 @@ func (h *WSHandler) UpdateChatRoom(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	var req services.UpdateChatRoomReq
+	var req interfaces.UpdateChatRoomReq
 	err = conn.ReadJSON(&req)
 	if err != nil {
 		conn.WriteJSON(gin.H{"error": err.Error()})

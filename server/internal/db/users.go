@@ -2,7 +2,7 @@ package db
 
 import (
 	"context"
-	"server/internal/models"
+	"chatgo/server/internal/models"
 )
 
 // CreateUser добавляет нового пользователя в базу данных, устанавливает created_at и last_login CURRENT_TIMESTAMP
@@ -15,7 +15,7 @@ func (r *repository) CreateUser(ctx context.Context, user *models.User) (*models
 			last_login,
 			status
 		) VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, $3) 
-		RETURNING id, created_at, last_login, status`
+		RETURNING id, username, encrypted_password, created_at, last_login, status`
 
 	err := r.db.QueryRowContext(
 		ctx,

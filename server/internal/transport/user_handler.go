@@ -1,8 +1,9 @@
 package transport
 
 import (
+	"chatgo/server/internal/interfaces"
+	"chatgo/server/internal/services"
 	"net/http"
-	"server/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
@@ -18,7 +19,7 @@ func NewUserHandler(s services.UserService) *UserHandler {
 }
 
 func (h *UserHandler) CreateUser(c *gin.Context) {
-	var u services.CreateUserReq
+	var u interfaces.CreateUserReq
 	if err := c.ShouldBindJSON(&u); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -34,7 +35,7 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 }
 
 func (h *UserHandler) Login(c *gin.Context) {
-	var user services.LoginUserReq
+	var user interfaces.LoginUserReq
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -56,7 +57,7 @@ func (h *UserHandler) Logout(c *gin.Context) {
 }
 
 func (h *UserHandler) GetUserByID(c *gin.Context) {
-	var req services.GetUserReq
+	var req interfaces.GetUserReq
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

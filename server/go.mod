@@ -1,4 +1,4 @@
-module server
+module chatgo/server
 
 go 1.24.1
 
