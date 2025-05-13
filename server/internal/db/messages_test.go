@@ -57,10 +57,9 @@ func TestRepository_GetMessagesByChatRoomID(t *testing.T) {
 
 	repo := &repository{db: db}
 
-	replyID := sql.NullInt64{Int64: 0, Valid: false}
-	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "reply_to_message_id", "created_at", "updated_at", "is_edited"}).
-		AddRow("1", "1", "1", "Message 1", replyID, time.Now(), time.Now(), false).
-		AddRow("2", "2", "1", "Message 2", replyID, time.Now(), time.Now(), false)
+	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "created_at", "updated_at", "is_edited"}).
+		AddRow("1", "1", "1", "Message 1", time.Now(), time.Now(), false).
+		AddRow("2", "2", "1", "Message 2", time.Now(), time.Now(), false)
 
 	mock.ExpectQuery("SELECT (.+) FROM messages WHERE chat_room_id = \\$1 ORDER BY created_at ASC LIMIT \\$2").
 		WithArgs("1", 10).
@@ -89,9 +88,8 @@ func TestRepository_GetMessageByID(t *testing.T) {
 
 	repo := &repository{db: db}
 
-	replyID := sql.NullInt64{Int64: 0, Valid: false}
-	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "reply_to_message_id", "created_at", "updated_at", "is_edited"}).
-		AddRow("1", "1", "1", "Test message", replyID, time.Now(), time.Now(), false)
+	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "created_at", "updated_at", "is_edited"}).
+		AddRow("1", "1", "1", "Test message", time.Now(), time.Now(), false)
 
 	mock.ExpectQuery("SELECT (.+) FROM messages WHERE id = \\$1").
 		WithArgs("1").

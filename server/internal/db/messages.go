@@ -44,19 +44,22 @@ func (r *repository) CreateMessage(ctx context.Context, message *models.Message)
 // GetMessagesByChatRoomID получает сообщения по ID чата, используя лимит для ограничения числа возвращаемых сообщений
 func (r *repository) GetMessagesByChatRoomID(ctx context.Context, chatRoomID string, limit int) ([]*models.Message, error) {
 	query := `
-		SELECT 
-			id,
-			sender_id,
-			chat_room_id,
-			encrypted_content,
-			reply_to_message_id,
-			created_at,
-			updated_at,
-			is_edited 
-		FROM messages 
-		WHERE chat_room_id = $1
-		ORDER BY created_at ASC
-		LIMIT $2`
+		WITH last_messages AS (
+			SELECT 
+				id,
+				sender_id,
+				chat_room_id,
+				encrypted_content,
+				created_at,
+				updated_at,
+				is_edited 
+			FROM messages 
+			WHERE chat_room_id = $1
+			ORDER BY created_at DESC
+			LIMIT $2
+		)
+		SELECT * FROM last_messages
+		ORDER BY created_at ASC`
 
 	rows, err := r.db.QueryContext(ctx, query, chatRoomID, limit)
 	if err != nil {
@@ -72,7 +75,6 @@ func (r *repository) GetMessagesByChatRoomID(ctx context.Context, chatRoomID str
 			&message.SenderID,
 			&message.ChatRoomID,
 			&message.EncryptedContent,
-			&message.ReplyToMessageID,
 			&message.CreatedAt,
 			&message.UpdatedAt,
 			&message.IsEdited,
@@ -97,7 +99,6 @@ func (r *repository) GetMessageByID(ctx context.Context, messageID string) (*mod
 			sender_id,
 			chat_room_id,
 			encrypted_content,
-			reply_to_message_id,
 			created_at,
 			updated_at,
 			is_edited 
@@ -110,7 +111,6 @@ func (r *repository) GetMessageByID(ctx context.Context, messageID string) (*mod
 		&message.SenderID,
 		&message.ChatRoomID,
 		&message.EncryptedContent,
-		&message.ReplyToMessageID,
 		&message.CreatedAt,
 		&message.UpdatedAt,
 		&message.IsEdited,

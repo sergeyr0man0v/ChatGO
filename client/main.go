@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/websocket"
@@ -38,9 +39,11 @@ type ClientRes struct {
 }
 
 type Message struct {
-	Content  string `json:"content"`
-	RoomID   string `json:"room_id"`
-	Username string `json:"username"`
+	ID        string `json:"id"`
+	Content   string `json:"content"`
+	RoomID    string `json:"roomId"`
+	Username  string `json:"username"`
+	CreatedAt string `json:"createdAt"`
 }
 
 func roomExists(serverAddr string, roomID string) bool {
@@ -96,7 +99,7 @@ func viewAllRooms(serverAddr string) {
 	}
 }
 
-func createRoom(serverAddr string, roomID, roomName, roomType string, creatorID string) {
+func createNewRoom(serverAddr string, roomID, roomName, roomType string, creatorID string) {
 	roomData := Room{
 		ID:        roomID,
 		Name:      roomName,
@@ -118,7 +121,58 @@ func createRoom(serverAddr string, roomID, roomName, roomType string, creatorID 
 	fmt.Println("Room created successfully.")
 }
 
-func handleMessages(c *websocket.Conn, username string) {
+func displayChatHistory(serverAddr string, roomID string, limit int, userID string) {
+	wsScheme := "ws"
+	wsHost := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
+	wsURL := fmt.Sprintf("%s://%s/ws/getMessages/%s/%d?userId=%s", wsScheme, wsHost, roomID, limit, userID)
+
+	header := http.Header{}
+	header.Add("Origin", serverAddr)
+	header.Add("User-Agent", "ChatGO-Client")
+
+	historyConn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
+	if err != nil {
+		log.Printf("Failed to fetch chat history: %v", err)
+		return
+	}
+	defer historyConn.Close()
+
+	// Read the response
+	var response interface{}
+	err = historyConn.ReadJSON(&response)
+	if err != nil {
+		log.Printf("Failed to read response: %v", err)
+		return
+	}
+
+	// Check if it's an error response
+	if errorMap, ok := response.(map[string]interface{}); ok {
+		if errorMsg, ok := errorMap["error"].(string); ok {
+			log.Printf("Error from server: %s", errorMsg)
+			return
+		}
+	}
+
+	// If not an error, it should be an array of messages
+	messages, ok := response.([]interface{})
+	if !ok {
+		log.Printf("Unexpected response format from server")
+		return
+	}
+
+	fmt.Printf("\nLast %d messages:\n", limit)
+	fmt.Println("----------------------------------------")
+	for _, msg := range messages {
+		if msgMap, ok := msg.(map[string]interface{}); ok {
+			username, _ := msgMap["username"].(string)
+			content, _ := msgMap["content"].(string)
+			fmt.Println(color.ColorizeMessage(username, content))
+		}
+	}
+	fmt.Println("----------------------------------------")
+}
+
+func handleMessages(c *websocket.Conn, username string, roomID string) {
 	for {
 		var message Message
 		err := c.ReadJSON(&message)
@@ -130,110 +184,90 @@ func handleMessages(c *websocket.Conn, username string) {
 	}
 }
 
+func viewChatHistory(serverAddr string, roomID string, limit int) {
+	wsScheme := "ws"
+	wsHost := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
+	wsURL := fmt.Sprintf("%s://%s/ws/getMessages/%s/%d", wsScheme, wsHost, roomID, limit)
+	log.Printf("Connecting to WebSocket server at: %s", wsURL)
+
+	c, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		log.Fatalf("Failed to connect to WebSocket server: %v", err)
+	}
+	defer c.Close()
+
+	var messages []Message
+	err = c.ReadJSON(&messages)
+	if err != nil {
+		log.Fatalf("Failed to decode messages: %v", err)
+	}
+
+	fmt.Printf("\nChat History for Room %s:\n", roomID)
+	fmt.Println("----------------------------------------")
+	for _, msg := range messages {
+		fmt.Println(color.ColorizeMessage(msg.Username, msg.Content))
+	}
+	fmt.Println("----------------------------------------")
+}
+
 func main() {
 	serverAddr := flag.String("server", "http://localhost:8080", "Server address")
-	username := flag.String("username", "", "Your username")
-	password := flag.String("password", "", "Your password")
-	roomID := flag.String("room", "default", "Room ID to join")
-	viewRooms := flag.Bool("viewRooms", false, "View all rooms")
-	createRoomFlag := flag.Bool("createRoom", false, "Create a new room")
-	roomName := flag.String("roomName", "", "Name of the room to create")
-	roomType := flag.String("roomType", "group", "Type of the room to create")
+	username := flag.String("username", "", "Username")
+	password := flag.String("password", "", "Password")
+	roomID := flag.String("room", "default", "Room ID to join (default: 'default')")
+	createRoom := flag.Bool("createRoom", false, "Create a new room")
+	roomName := flag.String("roomName", "", "Name for the new room")
+	roomType := flag.String("roomType", "group", "Type of the new room")
+	viewRooms := flag.Bool("viewRooms", false, "View all available rooms")
+	viewHistory := flag.Bool("history", false, "View chat history")
+	historyLimit := flag.Int("limit", 50, "Number of messages to retrieve for history")
 	flag.Parse()
+
+	if *username == "" || *password == "" {
+		log.Fatal("Username and password are required")
+	}
+
+	// Login
+	loginData := User{
+		Username: *username,
+		Password: *password,
+	}
+	loginJSON, _ := json.Marshal(loginData)
+	resp, err := http.Post(fmt.Sprintf("%s/login", *serverAddr), "application/json", bytes.NewBuffer(loginJSON))
+	if err != nil {
+		log.Fatalf("Failed to login: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Fatalf("Login failed: %s", string(body))
+	}
+
+	var loginResp LoginResponse
+	if err := json.NewDecoder(resp.Body).Decode(&loginResp); err != nil {
+		log.Fatalf("Failed to decode login response: %v", err)
+	}
 
 	if *viewRooms {
 		viewAllRooms(*serverAddr)
 		return
 	}
 
-	if *createRoomFlag {
-		if *roomName == "" {
-			log.Fatal("Room name is required")
+	if *viewHistory {
+		if *roomID == "" {
+			*roomID = "default"
 		}
-		loginData := User{
-			Username: *username,
-			Password: *password,
-		}
-		loginJSON, _ := json.Marshal(loginData)
-		resp, err := http.Post(*serverAddr+"/login", "application/json", bytes.NewBuffer(loginJSON))
-		if err != nil {
-			log.Fatal("Failed to login:", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			log.Fatal("Login failed:", string(body))
-		}
-
-		var loginResp LoginResponse
-		if err := json.NewDecoder(resp.Body).Decode(&loginResp); err != nil {
-			log.Fatal("Failed to decode login response:", err)
-		}
-
-		createRoom(*serverAddr, *roomID, *roomName, *roomType, loginResp.ID)
+		viewChatHistory(*serverAddr, *roomID, *historyLimit)
 		return
 	}
 
-	if *username == "" || *password == "" {
-		log.Fatal("Username and password are required")
-	}
-
-	signupData := User{
-		Username: *username,
-		Password: *password,
-	}
-	signupJSON, _ := json.Marshal(signupData)
-	resp, err := http.Post(*serverAddr+"/signup", "application/json", bytes.NewBuffer(signupJSON))
-	if err != nil {
-		log.Fatal("Failed to sign up:", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		if strings.Contains(string(body), "duplicate key value") {
-			log.Printf("User already exists, proceeding to login...")
-		} else {
-			log.Fatalf("Signup failed: %s", string(body))
+	if *createRoom {
+		if *roomName == "" {
+			log.Fatal("Room name is required to create a room")
 		}
-	}
-
-	loginData := User{
-		Username: *username,
-		Password: *password,
-	}
-	loginJSON, _ := json.Marshal(loginData)
-	resp, err = http.Post(*serverAddr+"/login", "application/json", bytes.NewBuffer(loginJSON))
-	if err != nil {
-		log.Fatal("Failed to login:", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		log.Fatal("Login failed:", string(body))
-	}
-
-	var loginResp LoginResponse
-	if err := json.NewDecoder(resp.Body).Decode(&loginResp); err != nil {
-		log.Fatal("Failed to decode login response:", err)
-	}
-	creatorID := loginResp.ID
-
-	if !roomExists(*serverAddr, *roomID) {
-		roomData := Room{
-			ID:        *roomID,
-			Name:      *roomID,
-			Type:      "group",
-			CreatorID: creatorID,
-		}
-		roomJSON, _ := json.Marshal(roomData)
-		resp, err = http.Post(fmt.Sprintf("%s/ws/createRoom?userId=%s", *serverAddr, creatorID), "application/json", bytes.NewBuffer(roomJSON))
-		if err != nil {
-			log.Fatal("Failed to create room:", err)
-		}
-		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			log.Fatal("Room creation failed:", string(body))
-		}
-		log.Printf("Created new room: %s", *roomID)
-	} else {
-		log.Printf("Room %s already exists, joining...", *roomID)
+		createNewRoom(*serverAddr, "", *roomName, *roomType, loginResp.ID)
+		return
 	}
 
 	// Check if user is already a member of the room
@@ -255,7 +289,7 @@ func main() {
 
 	isMember := false
 	for _, client := range clients {
-		if client.ID == creatorID {
+		if client.ID == loginResp.ID {
 			isMember = true
 			break
 		}
@@ -267,7 +301,7 @@ func main() {
 
 	wsScheme = "ws"
 	wsHost = strings.Replace(strings.Replace(*serverAddr, "http://", "", 1), "https://", "", 1)
-	wsURL = fmt.Sprintf("%s://%s/ws/joinRoom/%s?userId=%s&username=%s", wsScheme, wsHost, *roomID, creatorID, *username)
+	wsURL = fmt.Sprintf("%s://%s/ws/joinRoom/%s?userId=%s&username=%s", wsScheme, wsHost, *roomID, loginResp.ID, *username)
 	log.Printf("Connecting to WebSocket server at: %s", wsURL)
 
 	header := http.Header{}
@@ -288,10 +322,13 @@ func main() {
 
 	log.Printf("Successfully connected to room: %s as user: %s", *roomID, *username)
 
-	go handleMessages(c, *username)
+	go handleMessages(c, *username, *roomID)
 
 	reader := bufio.NewReader(os.Stdin)
 	fmt.Println("Connected to chat room. Type your messages (or 'exit' to quit):")
+	fmt.Println("Commands:")
+	fmt.Println("  /history [number] - Show last N messages (default: 10)")
+	fmt.Println("  exit - Leave the chat room")
 
 	for {
 		fmt.Print("> ")
@@ -304,6 +341,19 @@ func main() {
 		text = strings.TrimSpace(text)
 		if text == "exit" {
 			break
+		}
+
+		// Handle /history command
+		if strings.HasPrefix(text, "/history") {
+			parts := strings.Fields(text)
+			limit := 10 // default limit
+			if len(parts) > 1 {
+				if n, err := strconv.Atoi(parts[1]); err == nil && n > 0 {
+					limit = n
+				}
+			}
+			displayChatHistory(*serverAddr, *roomID, limit, loginResp.ID)
+			continue
 		}
 
 		message := Message{

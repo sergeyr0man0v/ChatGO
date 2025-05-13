@@ -303,6 +303,16 @@ func (h *WSHandler) GetMessagesByRoomID(c *gin.Context) {
 		return
 	}
 
+	// Handle "default" room ID
+	if roomID == "default" {
+		defaultRoomID, err := h.ensureDefaultRoom(c.Request.Context(), c.Query("userId"))
+		if err != nil {
+			conn.WriteJSON(gin.H{"error": "Failed to ensure default room"})
+			return
+		}
+		roomID = defaultRoomID
+	}
+
 	messages, err := h.service.GetMessagesByRoomID(c.Request.Context(), roomID, limit)
 	if err != nil {
 		conn.WriteJSON(gin.H{"error": err.Error()})

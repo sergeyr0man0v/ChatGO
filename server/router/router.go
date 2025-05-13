@@ -32,7 +32,7 @@ func InitRouter(
 	r.GET("/users", userHandler.GetAllUsers)
 
 	// WebSocket routes
-	r.GET("/ws/getMessages/:roomId", wsHandler.GetMessagesByRoomID)
+	r.GET("/ws/getMessages/:roomId/:limit", wsHandler.GetMessagesByRoomID)
 	r.GET("/ws/getRooms", wsHandler.GetChatRoomsByUserID)
 	r.PUT("/ws/updateRoom", wsHandler.UpdateChatRoom)
 	r.DELETE("/ws/deleteRoom/:roomId", wsHandler.DeleteChatRoom)
