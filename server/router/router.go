@@ -43,6 +43,16 @@ func InitRouter(
 	r.GET("/ws/getRoomClients/:roomId", wsHandler.GetRoomClients)
 }
 
-func Start(addr string) error {
-	return r.Run(addr)
+// Config holds server settings
+type Config struct {
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
+}
+
+func (c *Config) GetAddr() string {
+	return c.Host + ":" + c.Port
+}
+
+func Start(config *Config) error {
+	return r.Run(config.GetAddr())
 }

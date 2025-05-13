@@ -7,6 +7,11 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
+var config = &Config{
+	secretKey:  "super_secret_key",
+	encryptKey: []byte{79, 85, 171, 46, 87, 74, 21, 200, 132, 109, 97, 192, 13, 104, 79, 132, 186, 137, 253, 43, 19, 74, 75, 51, 64, 35, 238, 142, 168, 103, 122, 195},
+}
+
 // MockRepository is a mock implementation of models.Repository
 type MockRepository struct {
 	mock.Mock

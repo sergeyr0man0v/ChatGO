@@ -84,7 +84,7 @@ func TestService_CreateChatRoom(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockRepo := new(MockRepository)
-			service := NewService(mockRepo)
+			service := NewService(mockRepo, config)
 
 			tc.mockSetup(mockRepo)
 
@@ -98,7 +98,7 @@ func TestService_CreateChatRoom(t *testing.T) {
 
 func TestService_GetChatRoomByID(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	roomID := "room123"
 	expectedChatRoom := &models.ChatRoom{
@@ -122,7 +122,7 @@ func TestService_GetChatRoomByID(t *testing.T) {
 
 func TestService_GetAllChatRooms(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	expectedChatRooms := []*models.ChatRoom{
 		{
@@ -155,7 +155,7 @@ func TestService_GetAllChatRooms(t *testing.T) {
 
 func TestService_GetChatRoomsByUserID(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	userID := "user123"
 	expectedChatRooms := []*models.ChatRoom{
@@ -189,7 +189,7 @@ func TestService_GetChatRoomsByUserID(t *testing.T) {
 
 func TestService_UpdateChatRoom(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	req := &interfaces.UpdateChatRoomReq{
 		ID:   "room123",
@@ -219,7 +219,7 @@ func TestService_UpdateChatRoom(t *testing.T) {
 
 func TestService_DeleteChatRoom(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	roomID := "room123"
 
@@ -235,7 +235,7 @@ func TestService_DeleteChatRoom(t *testing.T) {
 
 func TestService_AddUserToChatRoom(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	req := &interfaces.AddUserToChatRoomReq{
 		UserID:     "user123",
@@ -261,7 +261,7 @@ func TestService_AddUserToChatRoom(t *testing.T) {
 
 func TestService_RemoveUserFromChatRoom(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	req := &interfaces.AddUserToChatRoomReq{
 		UserID:     "user123",
@@ -280,7 +280,7 @@ func TestService_RemoveUserFromChatRoom(t *testing.T) {
 
 func TestService_GetMembersByChatRoomID(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	roomID := "room123"
 	expectedMembers := []*models.ChatRoomMember{

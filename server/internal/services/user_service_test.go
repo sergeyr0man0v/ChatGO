@@ -12,7 +12,7 @@ import (
 
 func TestService_CreateUser(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	req := &interfaces.CreateUserReq{
 		Username: "testuser",
@@ -40,7 +40,7 @@ func TestService_CreateUser(t *testing.T) {
 
 func TestService_Login(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	req := &interfaces.LoginUserReq{
 		Username: "testuser",
@@ -70,7 +70,7 @@ func TestService_Login(t *testing.T) {
 
 func TestService_GetUserByID(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	userID := "user123"
 	req := &interfaces.GetUserReq{
@@ -95,7 +95,7 @@ func TestService_GetUserByID(t *testing.T) {
 
 func TestService_GetAllUsers(t *testing.T) {
 	mockRepo := new(MockRepository)
-	service := NewService(mockRepo)
+	service := NewService(mockRepo, config)
 
 	users := []*models.User{
 		{

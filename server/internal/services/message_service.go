@@ -3,7 +3,10 @@ package services
 import (
 	"chatgo/server/internal/interfaces"
 	"chatgo/server/internal/models"
+	"chatgo/server/internal/util"
 	"context"
+	"fmt"
+	"log"
 	"time"
 )
 
@@ -16,10 +19,16 @@ func (s *service) CreateMessage(c context.Context, req *interfaces.CreateMessage
 		return nil, err
 	}
 
+	encryptedMessage, err := util.EncryptMessage(req.Content, s.encryptKey)
+	if err != nil {
+		log.Printf("Failed to encrypt message: %v", err)
+		return nil, fmt.Errorf("Failed to encrypt message: %v", err)
+	}
+
 	message, err := s.Repository.CreateMessage(ctx, &models.Message{
 		SenderID:         user.ID,
 		ChatRoomID:       req.RoomID,
-		EncryptedContent: req.Content,
+		EncryptedContent: encryptedMessage,
 	})
 	if err != nil {
 		return nil, err
@@ -49,9 +58,14 @@ func (s *service) GetMessagesByRoomID(c context.Context, roomID string, limit in
 		if err != nil {
 			return nil, err
 		}
+		decryptMessage, err := util.DecryptMessage(message.EncryptedContent, s.encryptKey)
+		if err != nil {
+			log.Printf("Failed to encrypt message: %v", err)
+			return nil, fmt.Errorf("Failed to encrypt message: %v", err)
+		}
 		result[i] = &interfaces.CreateMessageRes{
 			ID:        message.ID,
-			Content:   message.EncryptedContent,
+			Content:   decryptMessage,
 			RoomID:    message.ChatRoomID,
 			Username:  user.Username,
 			CreatedAt: message.CreatedAt.Format(time.RFC3339),

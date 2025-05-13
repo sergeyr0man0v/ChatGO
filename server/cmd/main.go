@@ -6,20 +6,18 @@ import (
 	"chatgo/server/internal/db"
 	"chatgo/server/internal/services"
 	"chatgo/server/internal/transport"
+	"chatgo/server/pkg/config"
 	"chatgo/server/router"
 )
 
 func main() {
-	dbConfig := &db.Config{
-		Host:     "localhost",
-		Port:     "5444",
-		User:     "root",
-		Password: "password",
-		DBName:   "chat-go",
-		SSLMode:  "disable",
+	// Load configuration
+	cfg, err := config.LoadConfig("server/pkg/config/config.yaml")
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	database, err := db.NewDatabase(dbConfig)
+	database, err := db.NewDatabase(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Could not initialize the database: %v", err)
 	}
@@ -29,7 +27,7 @@ func main() {
 	repository := db.NewRepository(database.GetDB())
 
 	// Initialize service
-	service := services.NewService(repository)
+	service := services.NewService(repository, &cfg.Service)
 
 	// Initialize handlers
 	userHandler := transport.NewUserHandler(service)
@@ -41,5 +39,5 @@ func main() {
 
 	// Initialize router with all handlers
 	router.InitRouter(userHandler, wsHandler)
-	router.Start("0.0.0.0:8080")
+	router.Start(&cfg.Server)
 }

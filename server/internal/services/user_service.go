@@ -12,10 +12,6 @@ import (
 	"github.com/golang-jwt/jwt/v4"
 )
 
-const (
-	secretKey = "secret" // should further on store in a separate file
-)
-
 func (s *service) CreateUser(c context.Context, req *interfaces.CreateUserReq) (*interfaces.CreateUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
@@ -75,7 +71,7 @@ func (s *service) Login(c context.Context, req *interfaces.LoginUserReq) (*inter
 		},
 	})
 
-	ss, err := token.SignedString([]byte(secretKey))
+	ss, err := token.SignedString([]byte(s.secretKey))
 	if err != nil {
 		fmt.Println("After signing token")
 		return &interfaces.LoginUserRes{}, err
