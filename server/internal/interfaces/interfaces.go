@@ -1,26 +1,24 @@
 package interfaces
 
-import (
-	"chatgo/server/internal/models"
-	"context"
-)
-
 // Service defines the interface for all service operations
 type Service interface {
-	CreateUser(ctx context.Context, req *CreateUserReq) (*CreateUserRes, error)
-	Login(ctx context.Context, req *LoginUserReq) (*LoginUserRes, error)
-	GetUserByID(ctx context.Context, req *GetUserReq) (*GetUserRes, error)
-	GetAllUsers(ctx context.Context) ([]*GetUserRes, error)
-	CreateChatRoom(ctx context.Context, req *CreateChatRoomReq) (*CreateChatRoomRes, error)
-	GetChatRoomByID(ctx context.Context, id string) (*CreateChatRoomRes, error)
-	GetAllChatRooms(ctx context.Context) ([]*CreateChatRoomRes, error)
-	GetChatRoomsByUserID(ctx context.Context, userID string) ([]*CreateChatRoomRes, error)
-	UpdateChatRoom(ctx context.Context, req *UpdateChatRoomReq) (*CreateChatRoomRes, error)
-	DeleteChatRoom(ctx context.Context, id string) error
-	AddUserToChatRoom(ctx context.Context, req *AddUserToChatRoomReq) error
-	CreateMessage(ctx context.Context, req *CreateMessageReq) (*CreateMessageRes, error)
-	GetMessagesByRoomID(ctx context.Context, roomID string, limit int) ([]*CreateMessageRes, error)
-	GetMembersByChatRoomID(ctx context.Context, roomID string) ([]*models.ChatRoomMember, error)
+	UserService
+	MessageService
+	ChatRoomService
+	// CreateUser(ctx context.Context, req *CreateUserReq) (*CreateUserRes, error)
+	// Login(ctx context.Context, req *LoginUserReq) (*LoginUserRes, error)
+	// GetUserByID(ctx context.Context, req *GetUserReq) (*GetUserRes, error)
+	// GetAllUsers(ctx context.Context) ([]*GetUserRes, error)
+	// CreateChatRoom(ctx context.Context, req *CreateChatRoomReq) (*CreateChatRoomRes, error)
+	// GetChatRoomByID(ctx context.Context, id string) (*CreateChatRoomRes, error)
+	// GetAllChatRooms(ctx context.Context) ([]*CreateChatRoomRes, error)
+	// GetChatRoomsByUserID(ctx context.Context, userID string) ([]*CreateChatRoomRes, error)
+	// UpdateChatRoom(ctx context.Context, req *UpdateChatRoomReq) (*CreateChatRoomRes, error)
+	// DeleteChatRoom(ctx context.Context, id string) error
+	// AddUserToChatRoom(ctx context.Context, req *AddUserToChatRoomReq) error
+	// CreateMessage(ctx context.Context, req *CreateMessageReq) (*CreateMessageRes, error)
+	// GetMessagesByRoomID(ctx context.Context, roomID string, limit int) ([]*CreateMessageRes, error)
+	// GetMembersByChatRoomID(ctx context.Context, roomID string) ([]*models.ChatRoomMember, error)
 }
 
 // CreateUserReq represents the request to create a new user

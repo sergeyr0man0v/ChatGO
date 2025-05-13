@@ -28,7 +28,7 @@ func TestRepository_CreateMessage(t *testing.T) {
 		// ReplyToMessageID: replyID,
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "reply_to_message_id", "created_at", "updated_at", "is_edited"}).
+	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content" /*"reply_to_message_id",*/, "created_at", "updated_at", "is_edited"}).
 		AddRow("1", "1", "1", "Test message content" /*replyID,*/, time.Now(), time.Now(), false)
 
 	mock.ExpectQuery("INSERT INTO messages").

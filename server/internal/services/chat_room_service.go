@@ -8,28 +8,6 @@ import (
 	"time"
 )
 
-// ChatRoomRes представляет информацию о чат-комнате в ответах сервера
-type ChatRoomRes struct {
-	ID        string              `json:"id"`
-	Name      string              `json:"name"`
-	Type      models.ChatRoomType `json:"type"`
-	CreatorID string              `json:"creator_id"`
-	CreatedAt time.Time           `json:"created_at"`
-}
-
-// ChatRoomService определяет методы для работы с чат-комнатами
-type ChatRoomService interface {
-	CreateChatRoom(c context.Context, req *interfaces.CreateChatRoomReq) (*interfaces.CreateChatRoomRes, error)
-	GetChatRoomByID(c context.Context, roomID string) (*interfaces.CreateChatRoomRes, error)
-	GetChatRoomsByUserID(c context.Context, userID string) ([]*interfaces.CreateChatRoomRes, error)
-	GetAllChatRooms(c context.Context) ([]*interfaces.CreateChatRoomRes, error)
-	UpdateChatRoom(c context.Context, req *interfaces.UpdateChatRoomReq) (*interfaces.CreateChatRoomRes, error)
-	DeleteChatRoom(c context.Context, roomID string) error
-	AddUserToChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error
-	RemoveUserFromChatRoom(c context.Context, req *interfaces.AddUserToChatRoomReq) error
-	GetMembersByChatRoomID(c context.Context, roomID string) ([]*models.ChatRoomMember, error)
-}
-
 // CreateChatRoom создает новую чат-комнату с указанными параметрами и возвращает информацию о созданной комнате
 func (s *service) CreateChatRoom(c context.Context, req *interfaces.CreateChatRoomReq) (*interfaces.CreateChatRoomRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)

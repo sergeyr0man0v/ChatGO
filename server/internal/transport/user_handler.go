@@ -2,17 +2,16 @@ package transport
 
 import (
 	"chatgo/server/internal/interfaces"
-	"chatgo/server/internal/services"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 type UserHandler struct {
-	services.UserService
+	interfaces.UserService
 }
 
-func NewUserHandler(s services.UserService) *UserHandler {
+func NewUserHandler(s interfaces.UserService) *UserHandler {
 	return &UserHandler{
 		UserService: s,
 	}

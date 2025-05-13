@@ -15,9 +15,8 @@ func main() {
 		Port:     "5444",
 		User:     "root",
 		Password: "password",
-		// DBName:   "postgres",
-		DBName:  "chat-go",
-		SSLMode: "disable",
+		DBName:   "chat-go",
+		SSLMode:  "disable",
 	}
 
 	database, err := db.NewDatabase(dbConfig)

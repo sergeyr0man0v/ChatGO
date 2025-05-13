@@ -16,13 +16,6 @@ const (
 	secretKey = "secret" // should further on store in a separate file
 )
 
-type UserService interface {
-	CreateUser(c context.Context, req *interfaces.CreateUserReq) (*interfaces.CreateUserRes, error)
-	Login(c context.Context, req *interfaces.LoginUserReq) (*interfaces.LoginUserRes, error)
-	GetUserByID(c context.Context, req *interfaces.GetUserReq) (*interfaces.GetUserRes, error)
-	GetAllUsers(c context.Context) ([]*interfaces.GetUserRes, error)
-}
-
 func (s *service) CreateUser(c context.Context, req *interfaces.CreateUserReq) (*interfaces.CreateUserRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()

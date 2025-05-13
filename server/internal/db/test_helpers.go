@@ -25,10 +25,10 @@ func TestDB(t *testing.T) (*Database, error) {
 	t.Helper()
 	config := &Config{
 		Host:     "localhost",
-		Port:     "5433",
-		User:     "postgres",
+		Port:     "5444",
+		User:     "root",
 		Password: "password",
-		DBName:   "chat-go-test",
+		DBName:   "chat-go",
 		SSLMode:  "disable",
 	}
 

@@ -7,11 +7,6 @@ import (
 	"time"
 )
 
-type MessageService interface {
-	CreateMessage(c context.Context, req *interfaces.CreateMessageReq) (*interfaces.CreateMessageRes, error)
-	GetMessagesByRoomID(c context.Context, roomID string, limit int) ([]*interfaces.CreateMessageRes, error)
-}
-
 func (s *service) CreateMessage(c context.Context, req *interfaces.CreateMessageReq) (*interfaces.CreateMessageRes, error) {
 	ctx, cancel := context.WithTimeout(c, s.timeout)
 	defer cancel()
