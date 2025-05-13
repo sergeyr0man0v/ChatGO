@@ -46,7 +46,7 @@ type Message struct {
 	CreatedAt string `json:"createdAt"`
 }
 
-func roomExists(serverAddr string, roomID string) bool {
+func roomExists(serverAddr, roomID string) bool {
 	wsScheme := "ws"
 	wsHost := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
 	wsURL := fmt.Sprintf("%s://%s/ws/getAllRooms", wsScheme, wsHost)
@@ -99,7 +99,7 @@ func viewAllRooms(serverAddr string) {
 	}
 }
 
-func createNewRoom(serverAddr string, roomID, roomName, roomType string, creatorID string) {
+func createNewRoom(serverAddr, roomID, roomName, roomType, creatorID string) {
 	roomData := Room{
 		ID:        roomID,
 		Name:      roomName,
@@ -121,7 +121,7 @@ func createNewRoom(serverAddr string, roomID, roomName, roomType string, creator
 	fmt.Println("Room created successfully.")
 }
 
-func displayChatHistory(serverAddr string, roomID string, limit int, userID string) {
+func displayChatHistory(serverAddr, roomID string, limit int, userID string) {
 	wsScheme := "ws"
 	wsHost := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
 	wsURL := fmt.Sprintf("%s://%s/ws/getMessages/%s/%d?userId=%s", wsScheme, wsHost, roomID, limit, userID)
@@ -172,7 +172,7 @@ func displayChatHistory(serverAddr string, roomID string, limit int, userID stri
 	fmt.Println("----------------------------------------")
 }
 
-func handleMessages(c *websocket.Conn, username string, roomID string) {
+func handleMessages(c *websocket.Conn, username, roomID string) {
 	for {
 		var message Message
 		err := c.ReadJSON(&message)
