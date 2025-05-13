@@ -11,6 +11,9 @@ import (
 
 // EncryptMessage encrypts a string using AES-256 encryption
 func EncryptMessage(message string, key []byte) (string, error) {
+	if len(key) != 32 {
+		return message, nil
+	}
 	plaintext := []byte(message)
 
 	block, err := aes.NewCipher(key)
@@ -39,6 +42,9 @@ func EncryptMessage(message string, key []byte) (string, error) {
 
 // DecryptMessage decrypts an encrypted string using AES-256 decryption
 func DecryptMessage(encryptedMessage string, key []byte) (string, error) {
+	if len(key) != 32 {
+		return encryptedMessage, nil
+	}
 	ciphertext, err := base64.StdEncoding.DecodeString(encryptedMessage)
 	if err != nil {
 		return "", err

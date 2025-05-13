@@ -12,7 +12,7 @@ import (
 
 func main() {
 	// Load configuration
-	cfg, err := config.LoadConfig("server/pkg/config/config.yaml")
+	cfg, err := config.LoadConfig("/home/sergei/Desktop/mipt/GO/ChatGO/server/pkg/config/config.yaml")
 	if err != nil {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}

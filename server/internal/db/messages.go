@@ -49,7 +49,6 @@ func (r *repository) GetMessagesByChatRoomID(ctx context.Context, chatRoomID str
 			sender_id,
 			chat_room_id,
 			encrypted_content,
-			reply_to_message_id,
 			created_at,
 			updated_at,
 			is_edited 
