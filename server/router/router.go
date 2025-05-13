@@ -1,15 +1,17 @@
 package router
 
 import (
-	"server/internal/user"
-	"server/internal/ws"
+	"chatgo/server/internal/transport"
 
 	"github.com/gin-gonic/gin"
 )
 
 var r *gin.Engine
 
-func InitRouter(userHandler *user.Handler, wsHandler *ws.Handler) {
+func InitRouter(
+	userHandler *transport.UserHandler,
+	wsHandler *transport.WSHandler,
+) {
 	r = gin.Default()
 
 	/*r.Use(cors.New(cors.Config{
@@ -23,17 +25,34 @@ func InitRouter(userHandler *user.Handler, wsHandler *ws.Handler) {
 		},
 		MaxAge: 12 * time.Hour,
 	}))*/
-
+	// User routes
 	r.POST("/signup", userHandler.CreateUser)
 	r.POST("/login", userHandler.Login)
 	r.GET("/logout", userHandler.Logout)
+	r.GET("/users", userHandler.GetAllUsers)
+
+	// WebSocket routes
+	r.GET("/ws/getMessages/:roomId/:limit", wsHandler.GetMessagesByRoomID)
+	r.GET("/ws/getRooms", wsHandler.GetChatRoomsByUserID)
+	r.PUT("/ws/updateRoom", wsHandler.UpdateChatRoom)
+	r.DELETE("/ws/deleteRoom/:roomId", wsHandler.DeleteChatRoom)
 
 	r.POST("/ws/createRoom", wsHandler.CreateRoom)
 	r.GET("/ws/joinRoom/:roomId", wsHandler.JoinRoom)
-	r.GET("/ws/getRooms", wsHandler.GetRooms)
-	r.GET("/ws/getClients/:roomId", wsHandler.GetClients)
+	r.GET("/ws/getAllRooms", wsHandler.GetAllRooms)
+	r.GET("/ws/getRoomClients/:roomId", wsHandler.GetRoomClients)
 }
 
-func Start(addr string) error {
-	return r.Run(addr)
+// Config holds server settings
+type Config struct {
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
+}
+
+func (c *Config) GetAddr() string {
+	return c.Host + ":" + c.Port
+}
+
+func Start(config *Config) error {
+	return r.Run(config.GetAddr())
 }

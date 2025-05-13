@@ -1,35 +1,31 @@
 version: '3.8'
 
 services:
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-
   server1:
-    build: .
-    environment:
-      - REDIS_HOST=redis
-      - DB_HOST=postgres
+    build:
+      context: ../../
+      dockerfile: Dockerfile
     ports:
       - "8080"
 
   server2:
-    build: .
-    environment:
-      - REDIS_HOST=redis
-      - DB_HOST=postgres
+    build:
+      context: ../../
+      dockerfile: Dockerfile
     ports:
       - "8080"
 
   postgres:
     image: postgres:14
     environment:
-      POSTGRES_PASSWORD: chatpass
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: chat-go
+    ports:
+      - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ../internal/db/migrations:/app/migrations
 
   redis:
     image: redis:6
