@@ -1,9 +1,9 @@
 package db
 
 import (
+	"chatgo/server/internal/models"
 	"context"
 	"database/sql"
-	"chatgo/server/internal/models"
 )
 
 type DBTX interface {

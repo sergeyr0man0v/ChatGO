@@ -45,7 +45,7 @@ func (h *Hub) Run() {
 				if _, ok := h.Rooms[cl.RoomID].Clients[cl.ID]; ok {
 					if len(h.Rooms[cl.RoomID].Clients) != 0 {
 						h.Broadcast <- &Message{
-							Content:  "user left the chat",
+							Content:  "User left the chat",
 							RoomID:   cl.RoomID,
 							Username: cl.Username,
 						}

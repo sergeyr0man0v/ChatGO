@@ -3,9 +3,10 @@ package db
 import (
 	"context"
 	"database/sql"
-	"server/internal/models"
 	"testing"
 	"time"
+
+	"chatgo/server/internal/models"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"

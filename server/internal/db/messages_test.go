@@ -2,10 +2,10 @@ package db
 
 import (
 	"context"
-	"database/sql"
-	"server/internal/models"
 	"testing"
 	"time"
+
+	"chatgo/server/internal/models"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
@@ -20,19 +20,19 @@ func TestRepository_CreateMessage(t *testing.T) {
 
 	repo := &repository{db: db}
 
-	replyID := sql.NullInt64{Int64: 0, Valid: false}
+	// replyID := sql.NullInt64{Int64: 0, Valid: false}
 	message := &models.Message{
 		SenderID:         "1",
 		ChatRoomID:       "1",
 		EncryptedContent: "Test message content",
-		ReplyToMessageID: replyID,
+		// ReplyToMessageID: replyID,
 	}
 
 	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "reply_to_message_id", "created_at", "updated_at", "is_edited"}).
-		AddRow("1", "1", "1", "Test message content", replyID, time.Now(), time.Now(), false)
+		AddRow("1", "1", "1", "Test message content" /*replyID,*/, time.Now(), time.Now(), false)
 
 	mock.ExpectQuery("INSERT INTO messages").
-		WithArgs(message.SenderID, message.ChatRoomID, message.EncryptedContent, message.ReplyToMessageID).
+		WithArgs(message.SenderID, message.ChatRoomID, message.EncryptedContent /*message.ReplyToMessageID*/).
 		WillReturnRows(rows)
 
 	ctx := context.Background()

@@ -216,15 +216,15 @@ func (h *WSHandler) JoinRoom(c *gin.Context) {
 		Username: username,
 	}
 
-	// Store system message in database
-	_, err = h.service.CreateMessage(c.Request.Context(), &interfaces.CreateMessageReq{
-		Content:  m.Content,
-		RoomID:   m.RoomID,
-		Username: m.Username,
-	})
-	if err != nil {
-		log.Printf("Failed to store system message: %v", err)
-	}
+	// // Store system message in database
+	// _, err = h.service.CreateMessage(c.Request.Context(), &interfaces.CreateMessageReq{
+	// 	Content:  m.Content,
+	// 	RoomID:   m.RoomID,
+	// 	Username: m.Username,
+	// })
+	// if err != nil {
+	// 	log.Printf("Failed to store system message: %v", err)
+	// }
 
 	log.Printf("Broadcasting join message to room %s", roomID)
 	h.hub.Broadcast <- m

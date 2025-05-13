@@ -1,9 +1,9 @@
 package db
 
 import (
+	"chatgo/server/internal/models"
 	"context"
 	"errors"
-	"server/internal/models"
 	"testing"
 	"time"
 

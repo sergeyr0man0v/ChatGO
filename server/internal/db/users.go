@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+
 	"chatgo/server/internal/models"
 )
 

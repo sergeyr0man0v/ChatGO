@@ -12,11 +12,12 @@ import (
 func main() {
 	dbConfig := &db.Config{
 		Host:     "localhost",
-		Port:     "5434",
-		User:     "postgres",
+		Port:     "5444",
+		User:     "root",
 		Password: "password",
-		DBName:   "chat-go",
-		SSLMode:  "disable",
+		// DBName:   "postgres",
+		DBName:  "chat-go",
+		SSLMode: "disable",
 	}
 
 	database, err := db.NewDatabase(dbConfig)
