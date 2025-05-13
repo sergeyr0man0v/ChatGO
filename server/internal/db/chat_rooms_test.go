@@ -3,6 +3,7 @@ package db
 import (
 	"chatgo/server/internal/models"
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -122,35 +123,90 @@ func TestRepository_UpdateChatRoom(t *testing.T) {
 }
 
 func TestRepository_DeleteChatRoom(t *testing.T) {
-	db, mock, err := MockDB(t)
-	if err != nil {
-		t.Fatalf("Error creating mock DB: %v", err)
+	testCases := []struct {
+		name        string
+		chatRoom    *models.ChatRoom
+		mockSetup   func(mock sqlmock.Sqlmock)
+		expectError bool
+	}{
+		{
+			name: "Successfully delete chat room",
+			chatRoom: &models.ChatRoom{
+				ID: "1",
+			},
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec("DELETE FROM chat_room_members WHERE chat_room_id = \\$1").
+					WithArgs("1").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+
+				mock.ExpectExec("DELETE FROM chat_rooms WHERE id = \\$1").
+					WithArgs("1").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+
+				mock.ExpectCommit()
+			},
+			expectError: false,
+		},
+		{
+			name: "Error deleting chat room members",
+			chatRoom: &models.ChatRoom{
+				ID: "1",
+			},
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec("DELETE FROM chat_room_members WHERE chat_room_id = \\$1").
+					WithArgs("1").
+					WillReturnError(sql.ErrConnDone)
+
+				mock.ExpectRollback()
+			},
+			expectError: true,
+		},
+		{
+			name: "Error deleting chat room",
+			chatRoom: &models.ChatRoom{
+				ID: "1",
+			},
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectBegin()
+				mock.ExpectExec("DELETE FROM chat_room_members WHERE chat_room_id = \\$1").
+					WithArgs("1").
+					WillReturnResult(sqlmock.NewResult(0, 1))
+
+				mock.ExpectExec("DELETE FROM chat_rooms WHERE id = \\$1").
+					WithArgs("1").
+					WillReturnError(sql.ErrConnDone)
+
+				mock.ExpectRollback()
+			},
+			expectError: true,
+		},
 	}
-	defer db.Close()
 
-	repo := &repository{db: db}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := MockDB(t)
+			if err != nil {
+				t.Fatalf("Error creating mock DB: %v", err)
+			}
+			defer db.Close()
 
-	chatRoom := &models.ChatRoom{
-		ID: "1",
-	}
+			repo := &repository{db: db}
+			tc.mockSetup(mock)
 
-	mock.ExpectBegin()
-	mock.ExpectExec("DELETE FROM chat_room_members WHERE chat_room_id = \\$1").
-		WithArgs("1").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+			ctx := context.Background()
+			err = repo.DeleteChatRoom(ctx, tc.chatRoom)
 
-	mock.ExpectExec("DELETE FROM chat_rooms WHERE id = \\$1").
-		WithArgs("1").
-		WillReturnResult(sqlmock.NewResult(0, 1))
+			if tc.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 
-	mock.ExpectCommit()
-
-	ctx := context.Background()
-	err = repo.DeleteChatRoom(ctx, chatRoom)
-
-	assert.NoError(t, err)
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("Unfulfilled expectations: %s", err)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled expectations: %s", err)
+			}
+		})
 	}
 }

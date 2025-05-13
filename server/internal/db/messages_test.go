@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -49,33 +50,89 @@ func TestRepository_CreateMessage(t *testing.T) {
 }
 
 func TestRepository_GetMessagesByChatRoomID(t *testing.T) {
-	db, mock, err := MockDB(t)
-	if err != nil {
-		t.Fatalf("Error creating mock DB: %v", err)
+	testCases := []struct {
+		name        string
+		chatRoomID  string
+		limit       int
+		mockSetup   func(mock sqlmock.Sqlmock)
+		expectError bool
+		checkResult func(t *testing.T, messages []*models.Message, err error)
+	}{
+		{
+			name:       "Successfully get messages",
+			chatRoomID: "1",
+			limit:      10,
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "created_at", "updated_at", "is_edited"}).
+					AddRow("1", "1", "1", "Message 1", time.Now(), time.Now(), false).
+					AddRow("2", "2", "1", "Message 2", time.Now(), time.Now(), false)
+
+				mock.ExpectQuery("SELECT (.+) FROM messages WHERE chat_room_id = \\$1 ORDER BY created_at ASC LIMIT \\$2").
+					WithArgs("1", 10).
+					WillReturnRows(rows)
+			},
+			expectError: false,
+			checkResult: func(t *testing.T, messages []*models.Message, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, messages)
+				assert.Len(t, messages, 2)
+				assert.Equal(t, "1", messages[0].ID)
+				assert.Equal(t, "2", messages[1].ID)
+			},
+		},
+		{
+			name:       "Database error",
+			chatRoomID: "1",
+			limit:      10,
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery("SELECT (.+) FROM messages WHERE chat_room_id = \\$1 ORDER BY created_at ASC LIMIT \\$2").
+					WithArgs("1", 10).
+					WillReturnError(sql.ErrConnDone)
+			},
+			expectError: true,
+			checkResult: func(t *testing.T, messages []*models.Message, err error) {
+				assert.Error(t, err)
+				assert.Nil(t, messages)
+				assert.Equal(t, sql.ErrConnDone, err)
+			},
+		},
+		{
+			name:       "No messages found",
+			chatRoomID: "999",
+			limit:      10,
+			mockSetup: func(mock sqlmock.Sqlmock) {
+				mock.ExpectQuery("SELECT (.+) FROM messages WHERE chat_room_id = \\$1 ORDER BY created_at ASC LIMIT \\$2").
+					WithArgs("999", 10).
+					WillReturnRows(sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "created_at", "updated_at", "is_edited"}))
+			},
+			expectError: false,
+			checkResult: func(t *testing.T, messages []*models.Message, err error) {
+				assert.NoError(t, err)
+				assert.Empty(t, messages)
+			},
+		},
 	}
-	defer db.Close()
 
-	repo := &repository{db: db}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := MockDB(t)
+			if err != nil {
+				t.Fatalf("Error creating mock DB: %v", err)
+			}
+			defer db.Close()
 
-	rows := sqlmock.NewRows([]string{"id", "sender_id", "chat_room_id", "encrypted_content", "created_at", "updated_at", "is_edited"}).
-		AddRow("1", "1", "1", "Message 1", time.Now(), time.Now(), false).
-		AddRow("2", "2", "1", "Message 2", time.Now(), time.Now(), false)
+			repo := &repository{db: db}
+			tc.mockSetup(mock)
 
-	mock.ExpectQuery("SELECT (.+) FROM messages WHERE chat_room_id = \\$1 ORDER BY created_at ASC LIMIT \\$2").
-		WithArgs("1", 10).
-		WillReturnRows(rows)
+			ctx := context.Background()
+			messages, err := repo.GetMessagesByChatRoomID(ctx, tc.chatRoomID, tc.limit)
 
-	ctx := context.Background()
-	messages, err := repo.GetMessagesByChatRoomID(ctx, "1", 10)
+			tc.checkResult(t, messages, err)
 
-	assert.NoError(t, err)
-	assert.NotNil(t, messages)
-	assert.Len(t, messages, 2)
-	assert.Equal(t, "1", messages[0].ID)
-	assert.Equal(t, "2", messages[1].ID)
-
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("Unfulfilled expectations: %s", err)
+			if err := mock.ExpectationsWereMet(); err != nil {
+				t.Errorf("Unfulfilled expectations: %s", err)
+			}
+		})
 	}
 }
 

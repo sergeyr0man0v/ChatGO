@@ -108,7 +108,7 @@ func (s *service) GetAllUsers(c context.Context) ([]*interfaces.GetUserRes, erro
 		return nil, err
 	}
 
-	result := make([]*interfaces.GetUserRes, len(users))
+	result := make([]*interfaces.GetUserRes, 0, len(users))
 	for _, u := range users {
 		result = append(result, &interfaces.GetUserRes{
 			ID:       u.ID,
